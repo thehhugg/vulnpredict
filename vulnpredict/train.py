@@ -9,8 +9,10 @@ def main(csv_file):
     Train the VulnPredict model from a labeled CSV file.
     """
     df = pd.read_csv(csv_file)
-    features = df.drop(columns=['label'])
+    raw_features = df.drop(columns=['label'])
     labels = df['label']
+    from .ml import extract_features
+    features = extract_features(raw_features.to_dict(orient='records'))
     train_model(features, labels)
 
 if __name__ == '__main__':
