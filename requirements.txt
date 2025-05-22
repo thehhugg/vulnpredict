@@ -1,0 +1,27 @@
+# Core dependencies
+requests
+pandas
+scikit-learn
+joblib
+
+# For Python code analysis
+astroid
+bandit
+
+# For JavaScript code analysis (optional, via subprocess)
+nodejs
+
+# For CLI
+click
+
+# For future web dashboard
+fastapi
+uvicorn
+
+# For testing
+testresources
+pytest
+
+# For code embeddings
+transformers
+torch 

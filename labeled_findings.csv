@@ -1,0 +1,2 @@
+type,source,sink,sink_line,variable,trace,commit_count,unique_authors,last_modified_days,label
+taint_analysis,"[(4, 'input')]",eval,5,user_code,"[(4, 'input'), (5, 'eval')]",0,0,0,0
