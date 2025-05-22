@@ -50,8 +50,10 @@ def scan(path):
         gen_data_main.callback(demo_dir, labeled_csv)
         # Train model
         df = pd.read_csv(labeled_csv)
-        features = df.drop(columns=['label'])
+        raw_features = df.drop(columns=['label'])
         labels = df['label'].astype(int)
+        from .ml import extract_features
+        features = extract_features(raw_features.to_dict(orient='records'))
         train_model(features, labels, model_path=MODEL_PATH)
         click.secho("[VulnPredict] Model trained. Proceeding with scan...", fg='green')
     click.echo(f"[VulnPredict] Scanning {path} for Python vulnerabilities...")
@@ -101,6 +103,8 @@ def scan(path):
 def train(csv_file):
     """Train the ML model from a labeled CSV file."""
     df = pd.read_csv(csv_file)
-    features = df.drop(columns=['label'])
+    raw_features = df.drop(columns=['label'])
     labels = df['label'].astype(int)
-    train_model(features, labels) 
+    from .ml import extract_features
+    features = extract_features(raw_features.to_dict(orient='records'))
+    train_model(features, labels)
