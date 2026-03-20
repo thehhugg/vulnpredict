@@ -20,7 +20,7 @@ logger = logging.getLogger("vulnpredict.config")
 
 CONFIG_FILENAME = ".vulnpredict.yml"
 SUPPORTED_LANGUAGES = {"python", "javascript"}
-SUPPORTED_FORMATS = {"text", "json", "sarif", "html"}
+SUPPORTED_FORMATS = {"text", "json", "sarif", "html", "markdown"}
 SUPPORTED_SEVERITIES = {"low", "medium", "high"}
 CURRENT_SCHEMA_VERSION = 1
 
@@ -342,7 +342,7 @@ ml:
   # model_path: models/custom_model.joblib
 
 output:
-  # Output format: text, json, sarif, html
+  # Output format: text, json, sarif, html, markdown
   format: text
   # Output file path (optional; defaults to stdout for text/json)
   # file: vulnpredict-results.sarif
