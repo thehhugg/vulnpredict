@@ -1,0 +1,132 @@
+{
+  "resultsPerPage": 3,
+  "startIndex": 0,
+  "totalResults": 3,
+  "format": "NVD_CVE",
+  "version": "2.0",
+  "timestamp": "2024-01-15T12:00:00.000",
+  "vulnerabilities": [
+    {
+      "cve": {
+        "id": "CVE-2024-0001",
+        "sourceIdentifier": "security@example.com",
+        "published": "2024-01-01T00:00:00.000",
+        "lastModified": "2024-01-02T00:00:00.000",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "SQL injection vulnerability in Example Product allows remote attackers to execute arbitrary SQL commands via the login form."
+          }
+        ],
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-89"
+              }
+            ]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:example:product:1.0:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "AAAA-BBBB-CCCC"
+                  },
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:example:product:1.1:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "DDDD-EEEE-FFFF"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-0002",
+        "sourceIdentifier": "security@example.com",
+        "published": "2024-01-05T00:00:00.000",
+        "lastModified": "2024-01-06T00:00:00.000",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "Cross-site scripting (XSS) vulnerability in Another Product allows attackers to inject arbitrary web script."
+          }
+        ],
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-79"
+              }
+            ]
+          }
+        ],
+        "configurations": [
+          {
+            "nodes": [
+              {
+                "operator": "OR",
+                "negate": false,
+                "cpeMatch": [
+                  {
+                    "vulnerable": true,
+                    "criteria": "cpe:2.3:a:another:product:2.0:*:*:*:*:*:*:*",
+                    "matchCriteriaId": "GGGG-HHHH-IIII"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "cve": {
+        "id": "CVE-2024-0003",
+        "sourceIdentifier": "security@example.com",
+        "published": "2024-01-10T00:00:00.000",
+        "lastModified": "2024-01-11T00:00:00.000",
+        "descriptions": [
+          {
+            "lang": "en",
+            "value": "Buffer overflow in Legacy System allows local attackers to gain elevated privileges."
+          }
+        ],
+        "weaknesses": [
+          {
+            "source": "nvd@nist.gov",
+            "type": "Primary",
+            "description": [
+              {
+                "lang": "en",
+                "value": "CWE-120"
+              },
+              {
+                "lang": "en",
+                "value": "CWE-787"
+              }
+            ]
+          }
+        ],
+        "configurations": []
+      }
+    }
+  ]
+}
