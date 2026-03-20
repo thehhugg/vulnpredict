@@ -13,4 +13,4 @@ function setUserHTML(userInput) {
 const API_KEY = 'sk_test_1234567890abcdef';
 
 // 4. Outdated dependency usage (simulated by requiring a known old package)
-const xmlrpc = require('xmlrpc'); // Known for past vulnerabilities 
+const xmlrpc = require('xmlrpc'); // Known for past vulnerabilities

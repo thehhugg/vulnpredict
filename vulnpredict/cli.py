@@ -1,38 +1,44 @@
-import click
 import os
-from .py_analyzer import analyze_python_project
-from .js_analyzer import analyze_js_project
-from .ml import train_model, predict, load_model
-from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
-from .data_ingest import fetch_nvd_cve_data
-from .pattern_extract import extract_patterns_from_nvd
+
+import click
 import pandas as pd
 
-MODEL_PATH = 'vulnpredict_model.joblib'
+from .data_ingest import fetch_nvd_cve_data
+from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
+from .js_analyzer import analyze_js_project
+from .ml import predict, train_model
+from .pattern_extract import extract_patterns_from_nvd
+from .py_analyzer import analyze_python_project
+
+MODEL_PATH = "vulnpredict_model.joblib"
+
 
 @click.group()
 def main():
     """VulnPredict CLI"""
     pass
 
+
 @main.command()
-@click.argument('year', type=int)
-@click.argument('out_file')
+@click.argument("year", type=int)
+@click.argument("out_file")
 def fetch_nvd(year, out_file):
     """Fetch NVD CVE data for a given YEAR and save to OUT_FILE (JSON)."""
     fetch_nvd_cve_data(year, out_file)
 
+
 @main.command()
-@click.argument('nvd_json')
-@click.argument('out_csv')
+@click.argument("nvd_json")
+@click.argument("out_csv")
 def extract_nvd_patterns(nvd_json, out_csv):
     """Extract patterns from NVD JSON and save to OUT_CSV."""
     df = extract_patterns_from_nvd(nvd_json)
     df.to_csv(out_csv, index=False)
     click.echo(f"[VulnPredict] Extracted patterns saved to {out_csv}")
 
+
 @main.command()
-@click.argument('path')
+@click.argument("path")
 def scan(path):
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
@@ -40,29 +46,31 @@ def scan(path):
         return
     # Auto-train if model is missing
     if not os.path.exists(MODEL_PATH):
-        click.secho("[VulnPredict] No trained model found. Auto-training on demo_project...", fg='yellow')
+        click.secho("[VulnPredict] No trained model found. Auto-training on demo_project...", fg="yellow")
         from .generate_labeled_data import main as gen_data_main
         from .ml import train_model
-        demo_dir = os.path.join(os.path.dirname(__file__), '..', 'demo_project')
+
+        demo_dir = os.path.join(os.path.dirname(__file__), "..", "demo_project")
         demo_dir = os.path.abspath(demo_dir)
-        labeled_csv = 'labeled_findings.csv'
+        labeled_csv = "labeled_findings.csv"
         # Generate labeled data
         gen_data_main.callback(demo_dir, labeled_csv)
         # Train model
         df = pd.read_csv(labeled_csv)
-        raw_features = df.drop(columns=['label'])
-        labels = df['label'].astype(int)
+        raw_features = df.drop(columns=["label"])
+        labels = df["label"].astype(int)
         from .ml import extract_features
-        features = extract_features(raw_features.to_dict(orient='records'))
+
+        features = extract_features(raw_features.to_dict(orient="records"))
         train_model(features, labels, model_path=MODEL_PATH)
-        click.secho("[VulnPredict] Model trained. Proceeding with scan...", fg='green')
+        click.secho("[VulnPredict] Model trained. Proceeding with scan...", fg="green")
     click.echo(f"[VulnPredict] Scanning {path} for Python vulnerabilities...")
     py_findings = analyze_python_project(path)
     click.echo(f"[VulnPredict] Found {len(py_findings)} Python findings.")
     click.echo(f"[VulnPredict] Scanning {path} for JavaScript vulnerabilities...")
     js_findings = analyze_js_project(path)
     click.echo(f"[VulnPredict] Found {len(js_findings)} JavaScript findings.")
-    click.echo(f"[VulnPredict] Running interprocedural taint analysis...")
+    click.echo("[VulnPredict] Running interprocedural taint analysis...")
     interproc_findings = analyze_interprocedural_taint(path)
     click.echo(f"[VulnPredict] Found {len(interproc_findings)} interprocedural taint findings.")
     all_findings = py_findings + js_findings + interproc_findings
@@ -74,15 +82,15 @@ def scan(path):
             # Colorize and summarize
             high, med, low = 0, 0, 0
             for finding in scored:
-                score = finding.get('vuln_score', 0)
+                score = finding.get("vuln_score", 0)
                 if score >= 0.8:
-                    color = 'red'
+                    color = "red"
                     high += 1
                 elif score >= 0.5:
-                    color = 'yellow'
+                    color = "yellow"
                     med += 1
                 else:
-                    color = 'green'
+                    color = "green"
                     low += 1
                 click.echo(click.style(f"[score={score:.2f}] {finding}", fg=color))
             click.echo("\n=== Summary ===")
@@ -98,13 +106,15 @@ def scan(path):
     else:
         click.echo("No potential vulnerabilities found.")
 
+
 @main.command()
-@click.argument('csv_file')
+@click.argument("csv_file")
 def train(csv_file):
     """Train the ML model from a labeled CSV file."""
     df = pd.read_csv(csv_file)
-    raw_features = df.drop(columns=['label'])
-    labels = df['label'].astype(int)
+    raw_features = df.drop(columns=["label"])
+    labels = df["label"].astype(int)
     from .ml import extract_features
-    features = extract_features(raw_features.to_dict(orient='records'))
+
+    features = extract_features(raw_features.to_dict(orient="records"))
     train_model(features, labels)

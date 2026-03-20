@@ -1,11 +1,19 @@
+import json
 import os
 import subprocess
-import json
 
-DANGEROUS_FUNCTIONS = {'eval', 'Function', 'setTimeout', 'setInterval'}
-VALIDATION_FUNCTIONS = {'encodeURIComponent', 'escape', 'unescape', 'validator', 'sanitize', 'DOMPurify', 'decodeURIComponent'}
+DANGEROUS_FUNCTIONS = {"eval", "Function", "setTimeout", "setInterval"}
+VALIDATION_FUNCTIONS = {
+    "encodeURIComponent",
+    "escape",
+    "unescape",
+    "validator",
+    "sanitize",
+    "DOMPurify",
+    "decodeURIComponent",
+}
 
-ESPRIMA_SCRIPT = '''
+ESPRIMA_SCRIPT = """
 const esprima = require('esprima');
 const fs = require('fs');
 const file = process.argv[2];
@@ -24,7 +32,12 @@ function walk(node, parent) {
         let inputValidation = [];
         esprima.traverse(node, {
             enter: function(child) {
-                if (child.type === 'CallExpression' && child.callee.type === 'Identifier' && ['encodeURIComponent', 'escape', 'unescape', 'validator', 'sanitize', 'DOMPurify', 'decodeURIComponent'].includes(child.callee.name)) {
+                let validationFns = [
+                    'encodeURIComponent', 'escape', 'unescape',
+                    'validator', 'sanitize', 'DOMPurify', 'decodeURIComponent'
+                ];
+                if (child.type === 'CallExpression' && child.callee.type === 'Identifier'
+                    && validationFns.includes(child.callee.name)) {
                     inputValidation.push(child.callee.name);
                 }
             }
@@ -39,7 +52,9 @@ function walk(node, parent) {
             dangerous_calls: []
         });
     }
-    if (node.type === 'CallExpression' && node.callee.type === 'Identifier' && ['eval', 'Function', 'setTimeout', 'setInterval'].includes(node.callee.name)) {
+    let dangerousFns = ['eval', 'Function', 'setTimeout', 'setInterval'];
+    if (node.type === 'CallExpression' && node.callee.type === 'Identifier'
+        && dangerousFns.includes(node.callee.name)) {
         findings.push({
             type: 'dangerous_call',
             function: node.callee.name,
@@ -58,7 +73,8 @@ function walk(node, parent) {
 }
 walk(ast, null);
 console.log(JSON.stringify(findings));
-'''
+"""
+
 
 def analyze_js_file(filepath):
     """
@@ -67,13 +83,12 @@ def analyze_js_file(filepath):
     """
     # Write the esprima script to a temp file
     import tempfile
-    with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as f:
         f.write(ESPRIMA_SCRIPT)
         script_path = f.name
     try:
-        result = subprocess.run([
-            'node', script_path, filepath
-        ], capture_output=True, text=True, check=True)
+        result = subprocess.run(["node", script_path, filepath], capture_output=True, text=True, check=True)
         findings = json.loads(result.stdout)
         return findings
     except Exception as e:
@@ -82,46 +97,49 @@ def analyze_js_file(filepath):
     finally:
         os.remove(script_path)
 
+
 def run_eslint(filepath):
     """
     Optionally run eslint on the given file and return parsed results.
     """
     try:
-        result = subprocess.run([
-            'eslint', '-f', 'json', filepath
-        ], capture_output=True, text=True, check=True)
+        result = subprocess.run(["eslint", "-f", "json", filepath], capture_output=True, text=True, check=True)
         data = json.loads(result.stdout)
         findings = []
         for file_result in data:
-            for msg in file_result.get('messages', []):
-                findings.append({
-                    'type': 'eslint',
-                    'ruleId': msg.get('ruleId'),
-                    'message': msg.get('message'),
-                    'line': msg.get('line'),
-                    'severity': msg.get('severity'),
-                })
+            for msg in file_result.get("messages", []):
+                findings.append(
+                    {
+                        "type": "eslint",
+                        "ruleId": msg.get("ruleId"),
+                        "message": msg.get("message"),
+                        "line": msg.get("line"),
+                        "severity": msg.get("severity"),
+                    }
+                )
         return findings
     except Exception as e:
         print(f"[VulnPredict] ESLint error: {e}")
         return []
+
 
 def extract_js_dependencies(path):
     """
     Extract dependencies from package.json if present in the root of the path.
     Returns a list of dependencies.
     """
-    pkg_path = os.path.join(path, 'package.json')
+    pkg_path = os.path.join(path, "package.json")
     if os.path.exists(pkg_path):
         with open(pkg_path) as f:
             try:
                 pkg = json.load(f)
-                deps = list(pkg.get('dependencies', {}).keys())
-                deps += list(pkg.get('devDependencies', {}).keys())
+                deps = list(pkg.get("dependencies", {}).keys())
+                deps += list(pkg.get("devDependencies", {}).keys())
                 return deps
             except Exception:
                 return []
     return []
+
 
 def analyze_js_project(path):
     """
@@ -131,12 +149,12 @@ def analyze_js_project(path):
     findings = []
     for root, _, files in os.walk(path):
         for file in files:
-            if file.endswith('.js'):
+            if file.endswith(".js"):
                 fpath = os.path.join(root, file)
                 findings.extend(analyze_js_file(fpath))
                 findings.extend(run_eslint(fpath))
     # Add dependencies as a finding
     deps = extract_js_dependencies(path)
     if deps:
-        findings.append({'type': 'dependencies', 'dependencies': deps})
-    return findings 
+        findings.append({"type": "dependencies", "dependencies": deps})
+    return findings

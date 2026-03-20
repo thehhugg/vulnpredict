@@ -12,4 +12,5 @@ class UserService:
 def outer_function(data):
     def inner_function(x):
         exec(x)
+
     inner_function(data)
