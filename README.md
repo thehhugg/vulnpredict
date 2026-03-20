@@ -5,6 +5,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/vulnpredict.svg)](https://pypi.org/project/vulnpredict/)
 [![Python versions](https://img.shields.io/pypi/pyversions/vulnpredict.svg)](https://pypi.org/project/vulnpredict/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/Docker-ghcr.io-blue)](https://github.com/thehhugg/vulnpredict/pkgs/container/vulnpredict)
 
 **Predictive Vulnerability Intelligence Tool**
 
@@ -27,10 +28,31 @@ VulnPredict is an open source project that applies static analysis and machine l
 - `setup.py` &ndash; package metadata and console entry point.
 
 ## Installation
+
+### Via pip
+```sh
+pip install vulnpredict
+```
+
+### Via Docker
+```sh
+docker pull ghcr.io/thehhugg/vulnpredict:latest
+
+# Scan a local project
+docker run --rm -v $(pwd):/code ghcr.io/thehhugg/vulnpredict scan /code
+
+# Output SARIF for GitHub Code Scanning
+docker run --rm -v $(pwd):/code ghcr.io/thehhugg/vulnpredict scan /code --format sarif --output /code/results.sarif
+
+# Filter by severity
+docker run --rm -v $(pwd):/code ghcr.io/thehhugg/vulnpredict scan /code --min-severity high --format json
+```
+
+### From source
 1. Clone this repository.
 2. Install dependencies:
    ```sh
-   pip install -r requirements.txt
+   pip install -e .
    ```
    JavaScript analysis additionally requires Node.js and npm for `esprima` and optional ESLint.
 

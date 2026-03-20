@@ -1,0 +1,45 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv
+venv
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing & CI
+.pytest_cache
+.coverage
+coverage.xml
+htmlcov/
+.tox
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Development files
+demo_project/
+tests/
+.flake8
+.secrets.baseline
+MANIFEST.in
