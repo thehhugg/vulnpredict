@@ -201,7 +201,7 @@ def _score_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["text", "json", "sarif", "html"], case_sensitive=False),
+    type=click.Choice(["text", "json", "sarif", "html", "markdown"], case_sensitive=False),
     default="text",
     help="Output format for scan results.",
 )
@@ -335,6 +335,37 @@ def scan(
     output_findings = scored_findings
     if show_suppressed:
         output_findings = scored_findings + suppressed_findings
+
+    # --- Markdown output ---
+    if output_format == "markdown":
+        try:
+            from .formatters.markdown import format_markdown, write_markdown
+
+            if output_file:
+                write_markdown(
+                    output_findings,
+                    scan_path=path,
+                    output_path=output_file,
+                    scan_duration=scan_duration,
+                    file_count=file_count,
+                    suppressed_count=len(suppressed_findings),
+                )
+                click.echo(f"[VulnPredict] Markdown report written to {output_file}")
+            else:
+                md_str = format_markdown(
+                    output_findings,
+                    scan_path=path,
+                    scan_duration=scan_duration,
+                    file_count=file_count,
+                    suppressed_count=len(suppressed_findings),
+                )
+                click.echo(md_str)
+        except Exception as exc:
+            logger.error("Failed to generate Markdown output: %s", exc)
+            logger.debug("Traceback:", exc_info=True)
+            sys.exit(EXIT_ERROR)
+        _print_suppression_summary(suppressed_findings)
+        return
 
     # --- HTML output ---
     if output_format == "html":
