@@ -1,3 +1,5 @@
+"""Machine learning model training and prediction for VulnPredict."""
+
 import os
 
 import joblib
@@ -6,6 +8,10 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
+
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 def extract_features(findings):
@@ -22,17 +28,33 @@ def extract_features(findings):
             "cyclomatic_complexity": float(f.get("cyclomatic_complexity", 0) or 0),
             "max_nesting_depth": float(f.get("max_nesting_depth", 0) or 0),
             "input_validation": float(len(f.get("input_validation", [])) or 0),
-            "dependency_count": float(len(f.get("dependencies", [])) if f.get("type") == "dependencies" else 0),
+            "dependency_count": float(
+                len(f.get("dependencies", []))
+                if f.get("type") == "dependencies"
+                else 0
+            ),
             # Taint analysis features
-            "taint_path_to_sink": float(1 if f.get("type") == "taint_analysis" else 0),
-            "taint_path_length": float(len(f.get("trace", [])) if f.get("type") == "taint_analysis" else 0),
+            "taint_path_to_sink": float(
+                1 if f.get("type") == "taint_analysis" else 0
+            ),
+            "taint_path_length": float(
+                len(f.get("trace", []))
+                if f.get("type") == "taint_analysis"
+                else 0
+            ),
             # Interprocedural taint features
-            "interprocedural_taint_path": float(1 if f.get("type") == "interprocedural_taint" else 0),
+            "interprocedural_taint_path": float(
+                1 if f.get("type") == "interprocedural_taint" else 0
+            ),
             "interprocedural_call_chain_length": float(
-                len(f.get("call_chain", [])) if f.get("type") == "interprocedural_taint" else 0
+                len(f.get("call_chain", []))
+                if f.get("type") == "interprocedural_taint"
+                else 0
             ),
             "interprocedural_var_trace_length": float(
-                len(f.get("var_trace", [])) if f.get("type") == "interprocedural_taint" else 0
+                len(f.get("var_trace", []))
+                if f.get("type") == "interprocedural_taint"
+                else 0
             ),
             # Code churn features
             "commit_count": float(f.get("commit_count", 0) or 0),
@@ -40,16 +62,24 @@ def extract_features(findings):
             "last_modified_days": float(f.get("last_modified_days", 0) or 0),
             # Dependency risk features
             "num_vulnerable_dependencies": float(
-                f.get("num_vulnerable_dependencies", 0) if f.get("type") == "dependencies" else 0
+                f.get("num_vulnerable_dependencies", 0)
+                if f.get("type") == "dependencies"
+                else 0
             ),
             "num_outdated_dependencies": float(
-                f.get("num_outdated_dependencies", 0) if f.get("type") == "dependencies" else 0
+                f.get("num_outdated_dependencies", 0)
+                if f.get("type") == "dependencies"
+                else 0
             ),
             "max_dependency_severity": float(
-                f.get("max_dependency_severity", 0) if f.get("type") == "dependencies" else 0
+                f.get("max_dependency_severity", 0)
+                if f.get("type") == "dependencies"
+                else 0
             ),
             # Sensitive data features
-            "sensitive_data_involved": float(int(f.get("sensitive_data_involved", False))),
+            "sensitive_data_involved": float(
+                int(f.get("sensitive_data_involved", False))
+            ),
             "num_sensitive_vars": float(f.get("num_sensitive_vars", 0) or 0),
         }
         # Add embedding features if present
@@ -83,29 +113,43 @@ def train_model(features, labels, model_path="vulnpredict_model.joblib"):
     Train a RandomForest model and save it to disk.
     Handles very small datasets by training/testing on all data if needed.
     """
-    print("[VulnPredict] Training features preview:")
-    print(features.head())
-    print("[VulnPredict] Training labels preview:")
-    print(labels.head())
+    logger.info("Training features shape: %s", features.shape)
+    logger.debug("Training features preview:\n%s", features.head())
+    logger.debug("Training labels preview:\n%s", labels.head())
     if len(features) < 5:
-        print("[VulnPredict] WARNING: Very few samples. Training and testing on all data.")
+        logger.warning(
+            "Very few samples (%d). Training and testing on all data.",
+            len(features),
+        )
         X_train, y_train = features, labels
         X_test, y_test = features, labels
     else:
-        X_train, X_test, y_train, y_test = train_test_split(features, labels, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(
+            features, labels, test_size=0.2, random_state=42
+        )
     clf = RandomForestClassifier(n_estimators=100, random_state=42)
     clf.fit(X_train, y_train)
     y_pred = clf.predict(X_test)
-    print(classification_report(y_test, y_pred))
-    joblib.dump(clf, model_path)
-    print(f"[VulnPredict] Model saved to {model_path}")
+    report = classification_report(y_test, y_pred)
+    logger.info("Classification report:\n%s", report)
+    try:
+        joblib.dump(clf, model_path)
+        logger.info("Model saved to %s", model_path)
+    except OSError as exc:
+        logger.error("Failed to save model to %s: %s", model_path, exc)
+        raise
     return clf
 
 
 def load_model(model_path="vulnpredict_model.joblib"):
+    """Load a trained model from disk."""
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
-    return joblib.load(model_path)
+    try:
+        return joblib.load(model_path)
+    except Exception as exc:
+        logger.error("Failed to load model from %s: %s", model_path, exc)
+        raise
 
 
 def predict(findings, model_path="vulnpredict_model.joblib"):
