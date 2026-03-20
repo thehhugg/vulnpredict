@@ -97,6 +97,20 @@ pre-commit autoupdate
   4. Ensure all pre-commit hooks pass (`pre-commit run --all-files`).
   5. Submit a pull request describing your changes.
 
+## Versioning Policy
+
+VulnPredict follows [Semantic Versioning (SemVer)](https://semver.org/spec/v2.0.0.html):
+
+| Version Component | When to Increment | Example |
+|-------------------|-------------------|---------|
+| **MAJOR** (X.0.0) | Breaking changes to CLI, output format, or public API | Removing a CLI flag, changing SARIF output schema |
+| **MINOR** (0.X.0) | New features, new analyzers, new output formats (backward-compatible) | Adding Go analyzer, adding SARIF output |
+| **PATCH** (0.0.X) | Bug fixes, documentation updates, test improvements | Fixing a false positive, updating docs |
+
+Development versions use the `-dev` suffix (e.g., `0.2.0-dev`). When preparing a release, the `-dev` suffix is removed and the CHANGELOG is updated.
+
+All notable changes must be documented in [CHANGELOG.md](CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/) format. When submitting a PR that adds a feature, fixes a bug, or introduces a breaking change, please add an entry under the `[Unreleased]` section.
+
 ## Extension Points
 
 - **Language Analyzers:** Add new modules under `vulnpredict/` for additional language support.
