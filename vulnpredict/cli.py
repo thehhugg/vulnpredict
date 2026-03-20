@@ -198,7 +198,7 @@ def _score_findings(findings):
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["text", "json", "sarif"], case_sensitive=False),
+    type=click.Choice(["text", "json", "sarif", "html"], case_sensitive=False),
     default="text",
     help="Output format for scan results.",
 )
@@ -253,6 +253,27 @@ def scan(ctx, path, output_format, output_file, compact):
     else:
         logger.info("No ML model available. Returning unscored findings.")
         scored_findings = all_findings
+
+    # --- HTML output ---
+    if output_format == "html":
+        try:
+            from .formatters.html import format_html, write_html
+
+            if not output_file:
+                output_file = "vulnpredict-report.html"
+            write_html(
+                scored_findings,
+                scan_path=path,
+                output_path=output_file,
+                scan_duration=scan_duration,
+                file_count=file_count,
+            )
+            click.echo(f"[VulnPredict] HTML report written to {output_file}")
+        except Exception as exc:
+            logger.error("Failed to generate HTML report: %s", exc)
+            logger.debug("Traceback:", exc_info=True)
+            sys.exit(EXIT_ERROR)
+        return
 
     # --- SARIF output ---
     if output_format == "sarif":
