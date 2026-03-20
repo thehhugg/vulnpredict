@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/thehhugg/vulnpredict/actions/workflows/ci.yml/badge.svg)](https://github.com/thehhugg/vulnpredict/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/thehhugg/vulnpredict/graph/badge.svg)](https://codecov.io/gh/thehhugg/vulnpredict)
+[![PyPI version](https://img.shields.io/pypi/v/vulnpredict.svg)](https://pypi.org/project/vulnpredict/)
+[![Python versions](https://img.shields.io/pypi/pyversions/vulnpredict.svg)](https://pypi.org/project/vulnpredict/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Predictive Vulnerability Intelligence Tool**
