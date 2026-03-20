@@ -281,8 +281,17 @@ def check_pypi_latest_version(package):
 
 
 def check_vulnerable_stub(package, version):
-    # Stub: always return False, can be replaced with Safety or NVD integration
-    return False, None
+    """Legacy stub — kept for backward compatibility.  Use :func:`check_vulnerable` instead."""
+    try:
+        from .vuln_db import check_vulnerable
+
+        is_vuln, details = check_vulnerable(package, version or "", ecosystem="PyPI")
+        if is_vuln and details:
+            return True, details.get("severity")
+        return False, None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("OSV lookup failed for %s@%s: %s", package, version, exc)
+        return False, None
 
 
 def extract_python_dependencies(path):
@@ -312,8 +321,10 @@ def extract_python_dependencies(path):
                     dep["vulnerable"] = vuln
                     if vuln:
                         num_vuln += 1
-                        if severity and (max_severity is None or severity > max_severity):
-                            max_severity = severity
+                        if severity:
+                            _sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}
+                            if max_severity is None or _sev_order.get(severity, 99) < _sev_order.get(max_severity, 99):
+                                max_severity = severity
                     deps.append(dep)
     return deps, num_vuln, num_outdated, max_severity
 
