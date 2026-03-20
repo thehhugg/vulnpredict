@@ -22,10 +22,10 @@ VulnPredict is an open source project that applies static analysis and machine l
 - Multi‑language support (Python and JavaScript) with CLI friendly output.
 
 ## Repository Layout
-- `vulnpredict/` &ndash; source code for analyzers and the ML pipeline.
+- `src/vulnpredict/` &ndash; source code for analyzers and the ML pipeline.
 - `demo_project/` &ndash; sample vulnerable project used for demos and training.
 - `requirements.txt` &ndash; Python dependencies.
-- `setup.py` &ndash; package metadata and console entry point.
+- `pyproject.toml` &ndash; package metadata and console entry point.
 
 ## Installation
 

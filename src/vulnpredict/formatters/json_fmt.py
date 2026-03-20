@@ -20,7 +20,7 @@ try:
 
     import os
 
-    _pyproject = os.path.join(os.path.dirname(__file__), "..", "..", "pyproject.toml")
+    _pyproject = os.path.join(os.path.dirname(__file__), "..", "..", "..", "pyproject.toml")
     if os.path.isfile(_pyproject):
         with open(_pyproject, "rb") as _f:
             _VERSION = tomllib.load(_f).get("project", {}).get("version", "dev")
