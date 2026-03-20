@@ -1,0 +1,106 @@
+name: "VulnPredict Security Scan"
+description: "Scan your codebase for security vulnerabilities using VulnPredict — a predictive vulnerability intelligence tool with ML-powered analysis."
+author: "thehhugg"
+
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  path:
+    description: "Path to the directory to scan (relative to repository root)"
+    required: false
+    default: "."
+  format:
+    description: "Output format: text, json, or sarif"
+    required: false
+    default: "sarif"
+  output-file:
+    description: "Path to write the output file"
+    required: false
+    default: "vulnpredict-results.sarif"
+  min-severity:
+    description: "Minimum severity level to report: low, medium, or high"
+    required: false
+    default: "low"
+  fail-on-findings:
+    description: "Fail the action if findings are detected at or above min-severity"
+    required: false
+    default: "false"
+  config:
+    description: "Path to a VulnPredict configuration file (optional)"
+    required: false
+    default: ""
+  python-version:
+    description: "Python version to use for running VulnPredict"
+    required: false
+    default: "3.12"
+  vulnpredict-version:
+    description: "VulnPredict version to install. Use a release tag (e.g., 'v0.3.0') or 'latest' for the master branch."
+    required: false
+    default: "latest"
+
+outputs:
+  results-file:
+    description: "Path to the scan results file"
+    value: ${{ steps.scan.outputs.results_file }}
+  finding-count:
+    description: "Total number of findings detected"
+    value: ${{ steps.scan.outputs.finding_count }}
+  high-count:
+    description: "Number of high-severity findings"
+    value: ${{ steps.scan.outputs.high_count }}
+  medium-count:
+    description: "Number of medium-severity findings"
+    value: ${{ steps.scan.outputs.medium_count }}
+  low-count:
+    description: "Number of low-severity findings"
+    value: ${{ steps.scan.outputs.low_count }}
+  exit-code:
+    description: "Exit code: 0 = no findings above threshold, 1 = findings found, 2 = error"
+    value: ${{ steps.scan.outputs.exit_code }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # Node.js is required for VulnPredict's JavaScript/TypeScript analysis
+    # which uses esprima for AST parsing and eslint for pattern detection
+    - name: Set up Node.js (for JavaScript analysis)
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install VulnPredict
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        VERSION="${{ inputs.vulnpredict-version }}"
+        # Validate version input to prevent injection
+        if [ "${VERSION}" = "latest" ]; then
+          pip install "git+https://github.com/thehhugg/vulnpredict.git@master"
+        elif echo "${VERSION}" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+          pip install "git+https://github.com/thehhugg/vulnpredict.git@${VERSION}"
+        else
+          echo "::error::Invalid vulnpredict-version: ${VERSION}. Use 'latest' or a semver tag (e.g., v0.3.0)."
+          exit 1
+        fi
+        # Install JS analysis tools (required for JavaScript/TypeScript scanning)
+        npm install -g esprima eslint 2>/dev/null || true
+
+    - name: Run VulnPredict scan
+      id: scan
+      shell: bash
+      run: |
+        # Run the entrypoint script
+        bash "${{ github.action_path }}/entrypoint.sh" \
+          "${{ inputs.path }}" \
+          "${{ inputs.format }}" \
+          "${{ inputs.output-file }}" \
+          "${{ inputs.min-severity }}" \
+          "${{ inputs.fail-on-findings }}" \
+          "${{ inputs.config }}"
