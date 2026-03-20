@@ -28,7 +28,7 @@ VALID_PATTERN_TYPES = {"function_call", "import", "attribute_access", "string_ma
 VALID_LANGUAGES = {"python", "javascript", "typescript", "go"}
 
 # Built-in rules directory (ships with the package)
-BUILTIN_RULES_DIR = os.path.join(os.path.dirname(__file__), "..", "rules")
+BUILTIN_RULES_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "rules")
 
 
 # ---------------------------------------------------------------------------

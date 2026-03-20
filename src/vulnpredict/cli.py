@@ -98,7 +98,7 @@ def _auto_train_model() -> bool:
         from .generate_labeled_data import main as gen_data_main
         from .ml import extract_features, train_model
 
-        demo_dir = os.path.join(os.path.dirname(__file__), "..", "demo_project")
+        demo_dir = os.path.join(os.path.dirname(__file__), "..", "..", "demo_project")
         demo_dir = os.path.abspath(demo_dir)
         if not os.path.isdir(demo_dir):
             logger.warning(

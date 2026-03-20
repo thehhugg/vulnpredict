@@ -17,7 +17,7 @@ WORKDIR /build
 
 # Copy only dependency files first for better layer caching
 COPY pyproject.toml ./
-COPY vulnpredict/ vulnpredict/
+COPY src/ src/
 
 # Build the wheel
 RUN pip install --no-cache-dir build && \
