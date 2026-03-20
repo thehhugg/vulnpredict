@@ -416,6 +416,32 @@ def _print_suppression_summary(suppressed_findings):
 
 
 @main.command()
+@click.argument(
+    "project_dir",
+    default=".",
+    type=click.Path(exists=True),
+)
+def init(project_dir):
+    """Generate a default .vulnpredict.yml configuration file."""
+    from .config import CONFIG_FILENAME, generate_default_config
+
+    config_path = os.path.join(project_dir, CONFIG_FILENAME)
+    if os.path.exists(config_path):
+        click.echo(f"Configuration file already exists: {config_path}")
+        if not click.confirm("Overwrite?"):
+            click.echo("Aborted.")
+            return
+    try:
+        with open(config_path, "w", encoding="utf-8") as fh:
+            fh.write(generate_default_config())
+        click.echo(f"[VulnPredict] Created {config_path}")
+        click.echo("Edit the file to customise scan settings for your project.")
+    except OSError as exc:
+        logger.error("Failed to write config file: %s", exc)
+        sys.exit(EXIT_ERROR)
+
+
+@main.command()
 @click.argument("csv_file")
 def train(csv_file):
     """Train the ML model from a labeled CSV file."""
