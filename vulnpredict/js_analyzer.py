@@ -132,19 +132,44 @@ def run_eslint(filepath):
 def extract_js_dependencies(path):
     """
     Extract dependencies from package.json if present in the root of the path.
-    Returns a list of dependencies.
+    Returns a tuple of (deps_list, num_vulnerable, num_outdated, max_severity).
     """
     pkg_path = os.path.join(path, "package.json")
+    deps = []
+    num_vuln = 0
+    max_severity = None
     if os.path.exists(pkg_path):
         with open(pkg_path) as f:
             try:
                 pkg = json.load(f)
-                deps = list(pkg.get("dependencies", {}).keys())
-                deps += list(pkg.get("devDependencies", {}).keys())
-                return deps
             except Exception:
-                return []
-    return []
+                return [], 0, 0, None
+        all_deps = {}
+        all_deps.update(pkg.get("dependencies", {}))
+        all_deps.update(pkg.get("devDependencies", {}))
+        for name, version_spec in all_deps.items():
+            # Strip semver prefixes like ^ and ~
+            version = version_spec.lstrip("^~><=!")
+            dep = {"name": name, "version": version}
+            try:
+                from .vuln_db import check_vulnerable
+
+                is_vuln, details = check_vulnerable(name, version, ecosystem="npm")
+                dep["vulnerable"] = is_vuln
+                if is_vuln:
+                    num_vuln += 1
+                    dep["vuln_details"] = details
+                    if details:
+                        sev = details.get("severity")
+                        if sev:
+                            _sev_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "unknown": 4}
+                            if max_severity is None or _sev_order.get(sev, 99) < _sev_order.get(max_severity, 99):
+                                max_severity = sev
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("OSV lookup failed for npm:%s@%s: %s", name, version, exc)
+                dep["vulnerable"] = False
+            deps.append(dep)
+    return deps, num_vuln, 0, max_severity
 
 
 def analyze_js_project(path):
@@ -160,7 +185,15 @@ def analyze_js_project(path):
                 findings.extend(analyze_js_file(fpath))
                 findings.extend(run_eslint(fpath))
     # Add dependencies as a finding
-    deps = extract_js_dependencies(path)
+    deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(path)
     if deps:
-        findings.append({"type": "dependencies", "dependencies": deps})
+        findings.append(
+            {
+                "type": "dependencies",
+                "dependencies": deps,
+                "num_vulnerable_dependencies": num_vuln,
+                "num_outdated_dependencies": num_outdated,
+                "max_dependency_severity": max_severity,
+            }
+        )
     return findings
