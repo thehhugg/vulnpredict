@@ -86,12 +86,7 @@ class TestDetectSensitiveVars:
         assert "DB_PASSWORD" in result
 
     def test_multiple_sensitive_vars(self):
-        source = (
-            "password = 'x'\n"
-            "secret_token = 'y'\n"
-            "auth_header = 'z'\n"
-            "normal_var = 42\n"
-        )
+        source = "password = 'x'\n" "secret_token = 'y'\n" "auth_header = 'z'\n" "normal_var = 42\n"
         tree = ast.parse(source)
         result = detect_sensitive_vars(tree)
         assert len(result) == 3
@@ -164,8 +159,7 @@ class TestEvalExecDetection:
         analyzer.visit(tree)
         for func in analyzer.functions:
             assert func["dangerous_calls"] == [], (
-                f"False positive in safe_eval.py: {func['name']} "
-                f"flagged {func['dangerous_calls']}"
+                f"False positive in safe_eval.py: {func['name']} " f"flagged {func['dangerous_calls']}"
             )
 
 
@@ -181,12 +175,9 @@ class TestSecretsDetection:
         tree = ast.parse(source)
         analyzer = FunctionAnalyzer()
         analyzer.visit(tree)
-        sensitive_funcs = [
-            f for f in analyzer.functions if f["sensitive_data_involved"]
-        ]
+        sensitive_funcs = [f for f in analyzer.functions if f["sensitive_data_involved"]]
         assert len(sensitive_funcs) >= 1, (
-            "Expected at least one function to flag sensitive data in "
-            "vulnerable_secrets.py"
+            "Expected at least one function to flag sensitive data in " "vulnerable_secrets.py"
         )
 
     def test_fixture_safe_no_secrets(self):
@@ -196,9 +187,7 @@ class TestSecretsDetection:
         analyzer = FunctionAnalyzer()
         analyzer.visit(tree)
         for func in analyzer.functions:
-            assert not func["sensitive_data_involved"], (
-                f"False positive: {func['name']} flagged as sensitive"
-            )
+            assert not func["sensitive_data_involved"], f"False positive: {func['name']} flagged as sensitive"
 
     def test_password_in_function_arg(self):
         source = "def login(username, password):\n    pass"
@@ -263,30 +252,17 @@ class TestComplexityMetrics:
         analyzer = FunctionAnalyzer()
         analyzer.visit(tree)
         func = analyzer.functions[0]
-        assert func["cyclomatic_complexity"] > 10, (
-            f"Expected high complexity, got {func['cyclomatic_complexity']}"
-        )
+        assert func["cyclomatic_complexity"] > 10, f"Expected high complexity, got {func['cyclomatic_complexity']}"
 
     def test_nesting_depth(self):
-        source = (
-            "def f(x):\n"
-            "    if x:\n"
-            "        if x > 1:\n"
-            "            return x\n"
-            "    return 0\n"
-        )
+        source = "def f(x):\n" "    if x:\n" "        if x > 1:\n" "            return x\n" "    return 0\n"
         tree = ast.parse(source)
         analyzer = FunctionAnalyzer()
         analyzer.visit(tree)
         assert analyzer.functions[0]["max_nesting_depth"] >= 2
 
     def test_input_validation_detection(self):
-        source = (
-            "import re\n"
-            "def f(data):\n"
-            "    if re.match(r'^[a-z]+$', data):\n"
-            "        return data\n"
-        )
+        source = "import re\n" "def f(data):\n" "    if re.match(r'^[a-z]+$', data):\n" "        return data\n"
         tree = ast.parse(source)
         analyzer = FunctionAnalyzer()
         analyzer.visit(tree)
@@ -456,9 +432,7 @@ class TestExtractPythonDependencies:
                 _fixture("mock_requirements.txt"),
                 os.path.join(tmpdir, "requirements.txt"),
             )
-            deps, num_vuln, num_outdated, max_severity = extract_python_dependencies(
-                tmpdir
-            )
+            deps, num_vuln, num_outdated, max_severity = extract_python_dependencies(tmpdir)
             dep_names = [d["name"] for d in deps]
             assert "requests" in dep_names
             assert "flask" in dep_names
@@ -483,9 +457,7 @@ class TestExtractPythonDependencies:
         finally:
             shutil.rmtree(tmpdir)
 
-    @mock.patch(
-        "vulnpredict.py_analyzer.check_pypi_latest_version", return_value="2.31.0"
-    )
+    @mock.patch("vulnpredict.py_analyzer.check_pypi_latest_version", return_value="2.31.0")
     def test_outdated_detection(self, _mock_pypi):
         tmpdir = tempfile.mkdtemp()
         try:
@@ -500,9 +472,7 @@ class TestExtractPythonDependencies:
     def test_no_requirements_file(self):
         tmpdir = tempfile.mkdtemp()
         try:
-            deps, num_vuln, num_outdated, max_severity = extract_python_dependencies(
-                tmpdir
-            )
+            deps, num_vuln, num_outdated, max_severity = extract_python_dependencies(tmpdir)
             assert deps == []
             assert num_vuln == 0
             assert num_outdated == 0
@@ -515,9 +485,7 @@ class TestExtractPythonDependencies:
         tmpdir = tempfile.mkdtemp()
         try:
             with open(os.path.join(tmpdir, "requirements.txt"), "w") as f:
-                f.write(
-                    "# This is a comment\n\nrequests==2.28.0\n\n# Another comment\n"
-                )
+                f.write("# This is a comment\n\nrequests==2.28.0\n\n# Another comment\n")
             deps, _, _, _ = extract_python_dependencies(tmpdir)
             assert len(deps) == 1
             assert deps[0]["name"] == "requests"
