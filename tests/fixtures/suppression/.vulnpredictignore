@@ -1,0 +1,5 @@
+# Comment
+
+build/
+*.log
+test_*.py

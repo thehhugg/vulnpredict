@@ -145,6 +145,7 @@ def format_json(
     scan_duration: Optional[float] = None,
     file_count: Optional[int] = None,
     compact: bool = False,
+    suppressed_count: int = 0,
 ) -> str:
     """Format scan findings as a JSON string.
 
@@ -179,6 +180,7 @@ def format_json(
         "summary": {
             "total_findings": len(normalized),
             "by_severity": severity_counts,
+            "suppressed_findings": suppressed_count,
         },
         "findings": normalized,
     }
@@ -200,6 +202,7 @@ def write_json(
     scan_duration: Optional[float] = None,
     file_count: Optional[int] = None,
     compact: bool = False,
+    suppressed_count: int = 0,
 ) -> None:
     """Format and write scan findings to a JSON file.
 
@@ -217,6 +220,7 @@ def write_json(
         scan_duration=scan_duration,
         file_count=file_count,
         compact=compact,
+        suppressed_count=suppressed_count,
     )
     with open(output_path, "w") as f:
         f.write(json_str)
