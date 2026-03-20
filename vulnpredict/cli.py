@@ -1,25 +1,39 @@
+"""VulnPredict CLI — command-line interface for the vulnerability scanner."""
+
 import os
+import sys
 import time
 
 import click
-import pandas as pd
 
-from .data_ingest import fetch_nvd_cve_data
-from .formatters.json_fmt import format_json, write_json
-from .formatters.sarif import format_sarif, write_sarif
-from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
-from .js_analyzer import analyze_js_project
-from .ml import predict, train_model
-from .pattern_extract import extract_patterns_from_nvd
-from .py_analyzer import analyze_python_project
+from .logging_config import configure_logging, get_logger
+
+logger = get_logger(__name__)
+
+# Exit codes
+EXIT_SUCCESS = 0
+EXIT_FINDINGS = 1
+EXIT_ERROR = 2
 
 MODEL_PATH = "vulnpredict_model.joblib"
 
 
 @click.group()
-def main():
-    """VulnPredict CLI"""
-    pass
+@click.option("-v", "--verbose", is_flag=True, default=False, help="Enable verbose output.")
+@click.option("--debug", is_flag=True, default=False, help="Enable debug output (very verbose).")
+@click.option(
+    "--log-file",
+    type=click.Path(),
+    default=None,
+    help="Write log output to a file in addition to stderr.",
+)
+@click.pass_context
+def main(ctx, verbose, debug, log_file):
+    """VulnPredict — Predictive Vulnerability Intelligence Tool."""
+    ctx.ensure_object(dict)
+    verbosity = 2 if debug else (1 if verbose else 0)
+    configure_logging(verbosity=verbosity, log_file=log_file)
+    ctx.obj["verbosity"] = verbosity
 
 
 @main.command()
@@ -27,7 +41,17 @@ def main():
 @click.argument("out_file")
 def fetch_nvd(year, out_file):
     """Fetch NVD CVE data for a given YEAR and save to OUT_FILE (JSON)."""
-    fetch_nvd_cve_data(year, out_file)
+    try:
+        from .data_ingest import fetch_nvd_cve_data
+
+        fetch_nvd_cve_data(year, out_file)
+    except ImportError as exc:
+        logger.error("Missing dependency for NVD fetching: %s", exc)
+        sys.exit(EXIT_ERROR)
+    except Exception as exc:
+        logger.error("Failed to fetch NVD data for year %d: %s", year, exc)
+        logger.debug("Traceback:", exc_info=True)
+        sys.exit(EXIT_ERROR)
 
 
 @main.command()
@@ -35,9 +59,21 @@ def fetch_nvd(year, out_file):
 @click.argument("out_csv")
 def extract_nvd_patterns(nvd_json, out_csv):
     """Extract patterns from NVD JSON and save to OUT_CSV."""
-    df = extract_patterns_from_nvd(nvd_json)
-    df.to_csv(out_csv, index=False)
-    click.echo(f"[VulnPredict] Extracted patterns saved to {out_csv}")
+    try:
+        import pandas as pd
+
+        from .pattern_extract import extract_patterns_from_nvd
+
+        if not os.path.isfile(nvd_json):
+            logger.error("NVD JSON file not found: %s", nvd_json)
+            sys.exit(EXIT_ERROR)
+        df = extract_patterns_from_nvd(nvd_json)
+        df.to_csv(out_csv, index=False)
+        click.echo(f"[VulnPredict] Extracted patterns saved to {out_csv}")
+    except Exception as exc:
+        logger.error("Failed to extract NVD patterns: %s", exc)
+        logger.debug("Traceback:", exc_info=True)
+        sys.exit(EXIT_ERROR)
 
 
 def _count_scannable_files(path):
@@ -48,6 +84,113 @@ def _count_scannable_files(path):
             if f.endswith((".py", ".js", ".jsx", ".ts", ".tsx")):
                 count += 1
     return count
+
+
+def _auto_train_model():
+    """Auto-train the ML model on the demo project if no model exists."""
+    logger.info("No trained model found. Auto-training on demo_project...")
+    try:
+        import pandas as pd
+
+        from .generate_labeled_data import main as gen_data_main
+        from .ml import extract_features, train_model
+
+        demo_dir = os.path.join(os.path.dirname(__file__), "..", "demo_project")
+        demo_dir = os.path.abspath(demo_dir)
+        if not os.path.isdir(demo_dir):
+            logger.warning(
+                "Demo project not found at %s. Skipping auto-training.", demo_dir
+            )
+            return False
+        labeled_csv = "labeled_findings.csv"
+        gen_data_main.callback(demo_dir, labeled_csv)
+        df = pd.read_csv(labeled_csv)
+        raw_features = df.drop(columns=["label"])
+        labels = df["label"].astype(int)
+        features = extract_features(raw_features.to_dict(orient="records"))
+        train_model(features, labels, model_path=MODEL_PATH)
+        logger.info("Model trained successfully.")
+        return True
+    except ImportError as exc:
+        logger.warning(
+            "ML dependencies not available (%s). Scanning without ML scoring.", exc
+        )
+        return False
+    except Exception as exc:
+        logger.warning("Auto-training failed: %s. Scanning without ML scoring.", exc)
+        logger.debug("Traceback:", exc_info=True)
+        return False
+
+
+def _run_python_scan(path):
+    """Run Python vulnerability analysis with error handling."""
+    try:
+        from .py_analyzer import analyze_python_project
+
+        logger.info("Scanning %s for Python vulnerabilities...", path)
+        findings = analyze_python_project(path)
+        logger.info("Found %d Python findings.", len(findings))
+        return findings
+    except ImportError as exc:
+        logger.warning("Python analyzer unavailable (%s). Skipping.", exc)
+        return []
+    except Exception as exc:
+        logger.error("Python analysis failed: %s", exc)
+        logger.debug("Traceback:", exc_info=True)
+        return []
+
+
+def _run_js_scan(path):
+    """Run JavaScript vulnerability analysis with error handling."""
+    try:
+        from .js_analyzer import analyze_js_project
+
+        logger.info("Scanning %s for JavaScript vulnerabilities...", path)
+        findings = analyze_js_project(path)
+        logger.info("Found %d JavaScript findings.", len(findings))
+        return findings
+    except ImportError as exc:
+        logger.warning("JavaScript analyzer unavailable (%s). Skipping.", exc)
+        return []
+    except Exception as exc:
+        logger.error("JavaScript analysis failed: %s", exc)
+        logger.debug("Traceback:", exc_info=True)
+        return []
+
+
+def _run_taint_analysis(path):
+    """Run interprocedural taint analysis with error handling."""
+    try:
+        from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
+
+        logger.info("Running interprocedural taint analysis...")
+        findings = analyze_interprocedural_taint(path)
+        logger.info("Found %d interprocedural taint findings.", len(findings))
+        return findings
+    except ImportError as exc:
+        logger.warning("Taint analysis unavailable (%s). Skipping.", exc)
+        return []
+    except Exception as exc:
+        logger.error("Taint analysis failed: %s", exc)
+        logger.debug("Traceback:", exc_info=True)
+        return []
+
+
+def _score_findings(findings):
+    """Score findings with the ML model, falling back gracefully."""
+    try:
+        from .ml import predict
+
+        scored = predict(findings)
+        logger.info("ML scoring applied to %d findings.", len(scored))
+        return scored
+    except ImportError:
+        logger.debug("ML dependencies not available. Returning unscored findings.")
+        return findings
+    except Exception as exc:
+        logger.warning("ML scoring failed: %s. Returning unscored findings.", exc)
+        logger.debug("Traceback:", exc_info=True)
+        return findings
 
 
 @main.command()
@@ -73,90 +216,89 @@ def _count_scannable_files(path):
     default=False,
     help="Produce minified JSON output (only with --format json).",
 )
-def scan(path, output_format, output_file, compact):
+@click.pass_context
+def scan(ctx, path, output_format, output_file, compact):
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
-        click.echo(f"[VulnPredict] Path not found: {path}")
-        return
+        logger.error("Scan path not found: %s", path)
+        sys.exit(EXIT_ERROR)
 
     scan_start = time.time()
+    logger.info("Starting scan of %s (format=%s)", path, output_format)
 
     # Auto-train if model is missing
-    if not os.path.exists(MODEL_PATH):
-        click.secho(
-            "[VulnPredict] No trained model found. Auto-training on demo_project...",
-            fg="yellow",
-        )
-        from .generate_labeled_data import main as gen_data_main
-        from .ml import extract_features, train_model
+    model_available = os.path.exists(MODEL_PATH)
+    if not model_available:
+        model_available = _auto_train_model()
 
-        demo_dir = os.path.join(os.path.dirname(__file__), "..", "demo_project")
-        demo_dir = os.path.abspath(demo_dir)
-        labeled_csv = "labeled_findings.csv"
-        gen_data_main.callback(demo_dir, labeled_csv)
-        df = pd.read_csv(labeled_csv)
-        raw_features = df.drop(columns=["label"])
-        labels = df["label"].astype(int)
-        features = extract_features(raw_features.to_dict(orient="records"))
-        train_model(features, labels, model_path=MODEL_PATH)
-        click.secho("[VulnPredict] Model trained. Proceeding with scan...", fg="green")
-
-    click.echo(f"[VulnPredict] Scanning {path} for Python vulnerabilities...")
-    py_findings = analyze_python_project(path)
-    click.echo(f"[VulnPredict] Found {len(py_findings)} Python findings.")
-
-    click.echo(f"[VulnPredict] Scanning {path} for JavaScript vulnerabilities...")
-    js_findings = analyze_js_project(path)
-    click.echo(f"[VulnPredict] Found {len(js_findings)} JavaScript findings.")
-
-    click.echo("[VulnPredict] Running interprocedural taint analysis...")
-    interproc_findings = analyze_interprocedural_taint(path)
-    click.echo(
-        f"[VulnPredict] Found {len(interproc_findings)} interprocedural taint findings."
-    )
+    # Run all analyzers
+    py_findings = _run_python_scan(path)
+    js_findings = _run_js_scan(path)
+    interproc_findings = _run_taint_analysis(path)
 
     all_findings = py_findings + js_findings + interproc_findings
     scan_duration = time.time() - scan_start
     file_count = _count_scannable_files(path)
 
-    # Try to score findings with the ML model
-    scored_findings = all_findings
-    try:
-        scored_findings = predict(all_findings)
-    except Exception:
-        pass
+    logger.info(
+        "Scan complete: %d findings in %.2fs (%d files scanned)",
+        len(all_findings),
+        scan_duration,
+        file_count,
+    )
+
+    # Score findings with ML model (skip if no model available)
+    if model_available:
+        scored_findings = _score_findings(all_findings)
+    else:
+        logger.info("No ML model available. Returning unscored findings.")
+        scored_findings = all_findings
 
     # --- SARIF output ---
     if output_format == "sarif":
-        if output_file:
-            write_sarif(scored_findings, scan_path=path, output_path=output_file)
-            click.echo(f"[VulnPredict] SARIF results written to {output_file}")
-        else:
-            sarif_str = format_sarif(scored_findings, scan_path=path)
-            click.echo(sarif_str)
+        try:
+            from .formatters.sarif import format_sarif, write_sarif
+
+            if output_file:
+                write_sarif(scored_findings, scan_path=path, output_path=output_file)
+                click.echo(f"[VulnPredict] SARIF results written to {output_file}")
+            else:
+                sarif_str = format_sarif(scored_findings, scan_path=path)
+                click.echo(sarif_str)
+        except Exception as exc:
+            logger.error("Failed to generate SARIF output: %s", exc)
+            logger.debug("Traceback:", exc_info=True)
+            sys.exit(EXIT_ERROR)
         return
 
     # --- JSON output ---
     if output_format == "json":
-        if output_file:
-            write_json(
-                scored_findings,
-                scan_path=path,
-                output_path=output_file,
-                scan_duration=scan_duration,
-                file_count=file_count,
-                compact=compact,
-            )
-            click.echo(f"[VulnPredict] JSON results written to {output_file}")
-        else:
-            json_str = format_json(
-                scored_findings,
-                scan_path=path,
-                scan_duration=scan_duration,
-                file_count=file_count,
-                compact=compact,
-            )
-            click.echo(json_str)
+        try:
+            from .formatters.json_fmt import format_json, write_json
+
+            if output_file:
+                write_json(
+                    scored_findings,
+                    scan_path=path,
+                    output_path=output_file,
+                    scan_duration=scan_duration,
+                    file_count=file_count,
+                    compact=compact,
+                )
+                click.echo(f"[VulnPredict] JSON results written to {output_file}")
+            else:
+                json_str = format_json(
+                    scored_findings,
+                    scan_path=path,
+                    scan_duration=scan_duration,
+                    file_count=file_count,
+                    compact=compact,
+                )
+                click.echo(json_str)
+        except Exception as exc:
+            logger.error("Failed to generate JSON output: %s", exc)
+            logger.debug("Traceback:", exc_info=True)
+            sys.exit(EXIT_ERROR)
         return
 
     # --- Text output (default) ---
@@ -184,21 +326,37 @@ def scan(path, output_format, output_file, compact):
         click.echo("No potential vulnerabilities found.")
 
     if output_file:
-        # Write text output to file
-        with open(output_file, "w") as f:
-            for finding in scored_findings:
-                f.write(str(finding) + "\n")
-        click.echo(f"[VulnPredict] Results written to {output_file}")
+        try:
+            with open(output_file, "w") as f:
+                for finding in scored_findings:
+                    f.write(str(finding) + "\n")
+            click.echo(f"[VulnPredict] Results written to {output_file}")
+        except OSError as exc:
+            logger.error("Failed to write output file %s: %s", output_file, exc)
+            sys.exit(EXIT_ERROR)
 
 
 @main.command()
 @click.argument("csv_file")
 def train(csv_file):
     """Train the ML model from a labeled CSV file."""
-    df = pd.read_csv(csv_file)
-    raw_features = df.drop(columns=["label"])
-    labels = df["label"].astype(int)
-    from .ml import extract_features
+    try:
+        import pandas as pd
 
-    features = extract_features(raw_features.to_dict(orient="records"))
-    train_model(features, labels)
+        from .ml import extract_features, train_model
+
+        if not os.path.isfile(csv_file):
+            logger.error("CSV file not found: %s", csv_file)
+            sys.exit(EXIT_ERROR)
+        df = pd.read_csv(csv_file)
+        raw_features = df.drop(columns=["label"])
+        labels = df["label"].astype(int)
+        features = extract_features(raw_features.to_dict(orient="records"))
+        train_model(features, labels)
+    except ImportError as exc:
+        logger.error("ML dependencies not available: %s", exc)
+        sys.exit(EXIT_ERROR)
+    except Exception as exc:
+        logger.error("Training failed: %s", exc)
+        logger.debug("Traceback:", exc_info=True)
+        sys.exit(EXIT_ERROR)
