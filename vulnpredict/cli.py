@@ -243,6 +243,12 @@ def _score_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     type=click.Path(exists=True),
     help="Additional directory of YAML rule files (may be repeated).",
 )
+@click.option(
+    "--profile",
+    type=click.Choice(["quick", "standard", "deep"], case_sensitive=False),
+    default=None,
+    help="Scan profile controlling analysis depth (default: standard).",
+)
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -254,6 +260,7 @@ def scan(
     show_suppressed: bool,
     min_severity: Optional[str],
     rules_dir: tuple,
+    profile: Optional[str],
 ) -> None:
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
@@ -262,7 +269,15 @@ def scan(
 
     scan_start = time.time()
     abs_path = os.path.abspath(path)
-    logger.info("Starting scan of %s (format=%s)", abs_path, output_format)
+
+    # Resolve scan profile
+    from .profiles import get_profile
+
+    scan_profile = get_profile(profile)
+    logger.info(
+        "Starting scan of %s (format=%s, profile=%s)",
+        abs_path, output_format, scan_profile.name,
+    )
 
     # Load rule engine
     from .rules import RuleIndex, load_all_rules
@@ -277,15 +292,19 @@ def scan(
     ignore_file = IgnoreFile.from_project(abs_path)
     baseline_findings = load_baseline(baseline) if baseline else None
 
-    # Auto-train if model is missing
-    model_available = os.path.exists(MODEL_PATH)
-    if not model_available:
-        model_available = _auto_train_model()
+    # Auto-train if model is missing (only for deep profile)
+    model_available = False
+    if scan_profile.ml_scoring:
+        model_available = os.path.exists(MODEL_PATH)
+        if not model_available:
+            model_available = _auto_train_model()
 
-    # Run all analyzers
-    py_findings = _run_python_scan(path)
-    js_findings = _run_js_scan(path)
-    interproc_findings = _run_taint_analysis(path)
+    # Run analyzers based on profile
+    py_findings = _run_python_scan(path) if scan_profile.pattern_matching else []
+    js_findings = _run_js_scan(path) if scan_profile.js_analysis else []
+    interproc_findings = (
+        _run_taint_analysis(path) if scan_profile.interprocedural_analysis else []
+    )
 
     all_findings = py_findings + js_findings + interproc_findings
     scan_duration = time.time() - scan_start
@@ -306,11 +325,14 @@ def scan(
         baseline=baseline_findings,
     )
 
-    # Score findings with ML model (skip if no model available)
-    if model_available:
+    # Score findings with ML model (only if profile enables it and model available)
+    if scan_profile.ml_scoring and model_available:
         scored_findings = _score_findings(active_findings)
     else:
-        logger.info("No ML model available. Returning unscored findings.")
+        if scan_profile.ml_scoring:
+            logger.info("No ML model available. Returning unscored findings.")
+        else:
+            logger.debug("ML scoring disabled by profile '%s'.", scan_profile.name)
         scored_findings = active_findings
 
     # Classify findings with severity and confidence
