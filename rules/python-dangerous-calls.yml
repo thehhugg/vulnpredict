@@ -1,0 +1,76 @@
+# VulnPredict built-in rules: dangerous function calls (Python)
+# These rules detect common vulnerability patterns in Python code.
+
+rules:
+  - id: VP-PY-001
+    name: eval-injection
+    severity: critical
+    confidence: high
+    languages: [python]
+    category: injection
+    message: "Use of eval() with potentially untrusted input"
+    pattern:
+      type: function_call
+      name: eval
+    cwe: CWE-95
+    tags: [injection, rce]
+    references:
+      - https://cwe.mitre.org/data/definitions/95.html
+
+  - id: VP-PY-002
+    name: exec-injection
+    severity: critical
+    confidence: high
+    languages: [python]
+    category: injection
+    message: "Use of exec() with potentially untrusted input"
+    pattern:
+      type: function_call
+      name: exec
+    cwe: CWE-95
+    tags: [injection, rce]
+    references:
+      - https://cwe.mitre.org/data/definitions/95.html
+
+  - id: VP-PY-003
+    name: compile-injection
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: injection
+    message: "Use of compile() may allow code injection"
+    pattern:
+      type: function_call
+      name: compile
+    cwe: CWE-95
+    tags: [injection]
+
+  - id: VP-PY-004
+    name: os-system-injection
+    severity: critical
+    confidence: high
+    languages: [python]
+    category: injection
+    message: "Use of os.system() allows shell command injection"
+    pattern:
+      type: function_call
+      name: os.system
+    cwe: CWE-78
+    tags: [injection, rce, command-injection]
+    references:
+      - https://cwe.mitre.org/data/definitions/78.html
+
+  - id: VP-PY-005
+    name: subprocess-injection
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: injection
+    message: "Use of subprocess with potentially untrusted input"
+    pattern:
+      type: function_call
+      names:
+        - subprocess.Popen
+        - subprocess.call
+    cwe: CWE-78
+    tags: [injection, command-injection]

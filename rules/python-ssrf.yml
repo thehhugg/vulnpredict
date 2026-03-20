@@ -1,0 +1,60 @@
+# VulnPredict built-in rules: SSRF and network-related vulnerabilities (Python)
+
+rules:
+  - id: VP-PY-020
+    name: ssrf-requests
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: ssrf
+    message: "HTTP request with potentially user-controlled URL (SSRF risk)"
+    pattern:
+      type: function_call
+      names:
+        - requests.get
+        - requests.post
+        - requests.put
+        - requests.delete
+        - requests.patch
+        - requests.head
+        - requests.options
+        - requests.request
+    cwe: CWE-918
+    tags: [ssrf, network]
+    references:
+      - https://cwe.mitre.org/data/definitions/918.html
+
+  - id: VP-PY-021
+    name: ssrf-urllib
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: ssrf
+    message: "HTTP request via urllib with potentially user-controlled URL"
+    pattern:
+      type: function_call
+      names:
+        - urllib.request.urlopen
+        - urllib.request.Request
+        - urllib.request.urlretrieve
+        - urlopen
+    cwe: CWE-918
+    tags: [ssrf, network]
+
+  - id: VP-PY-022
+    name: ssrf-httpx
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: ssrf
+    message: "HTTP request via httpx with potentially user-controlled URL"
+    pattern:
+      type: function_call
+      names:
+        - httpx.get
+        - httpx.post
+        - httpx.put
+        - httpx.delete
+        - httpx.request
+    cwe: CWE-918
+    tags: [ssrf, network]
