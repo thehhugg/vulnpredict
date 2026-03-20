@@ -62,4 +62,4 @@ models/
 *.joblib
 
 # VSCode
-.vscode/ 
+.vscode/
