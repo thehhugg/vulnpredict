@@ -340,22 +340,27 @@ class TestRunEslint:
 class TestExtractJsDependencies:
     """Verify package.json dependency extraction."""
 
-    def test_extracts_all_dependencies(self):
-        deps = extract_js_dependencies(FIXTURES_DIR)
-        assert "express" in deps
-        assert "lodash" in deps
+    @mock.patch("vulnpredict.vuln_db.check_vulnerable", return_value=(False, None))
+    def test_extracts_all_dependencies(self, mock_vuln):
+        deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(FIXTURES_DIR)
+        dep_names = [d["name"] for d in deps]
+        assert "express" in dep_names
+        assert "lodash" in dep_names
 
-    def test_extracts_dev_dependencies(self):
-        deps = extract_js_dependencies(FIXTURES_DIR)
-        assert "jest" in deps
-        assert "eslint" in deps
+    @mock.patch("vulnpredict.vuln_db.check_vulnerable", return_value=(False, None))
+    def test_extracts_dev_dependencies(self, mock_vuln):
+        deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(FIXTURES_DIR)
+        dep_names = [d["name"] for d in deps]
+        assert "jest" in dep_names
+        assert "eslint" in dep_names
 
-    def test_returns_four_total_deps(self):
-        deps = extract_js_dependencies(FIXTURES_DIR)
+    @mock.patch("vulnpredict.vuln_db.check_vulnerable", return_value=(False, None))
+    def test_returns_four_total_deps(self, mock_vuln):
+        deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(FIXTURES_DIR)
         assert len(deps) == 4
 
     def test_returns_empty_for_missing_package_json(self):
-        deps = extract_js_dependencies("/nonexistent/path")
+        deps, num_vuln, num_outdated, max_severity = extract_js_dependencies("/nonexistent/path")
         assert deps == []
 
     def test_returns_empty_for_malformed_package_json(self):
@@ -363,7 +368,7 @@ class TestExtractJsDependencies:
         tmpdir = tempfile.mkdtemp()
         try:
             shutil.copy(MALFORMED_PKG, os.path.join(tmpdir, "package.json"))
-            deps = extract_js_dependencies(tmpdir)
+            deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(tmpdir)
             assert deps == []
         finally:
             shutil.rmtree(tmpdir)
@@ -375,10 +380,16 @@ class TestExtractJsDependencies:
             pkg = {"name": "empty", "version": "1.0.0"}
             with open(os.path.join(tmpdir, "package.json"), "w") as f:
                 json.dump(pkg, f)
-            deps = extract_js_dependencies(tmpdir)
+            deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(tmpdir)
             assert deps == []
         finally:
             shutil.rmtree(tmpdir)
+
+    @mock.patch("vulnpredict.vuln_db.check_vulnerable", return_value=(True, {"severity": "high"}))
+    def test_counts_vulnerable_dependencies(self, mock_vuln):
+        deps, num_vuln, num_outdated, max_severity = extract_js_dependencies(FIXTURES_DIR)
+        assert num_vuln == 4  # All 4 deps flagged as vulnerable
+        assert max_severity == "high"
 
 
 # =========================================================================
@@ -395,14 +406,16 @@ class TestAnalyzeJsProject:
         # There are 5 .js files in fixtures (including vulnerable_dom_xss.js)
         assert mock_analyze.call_count == 5
 
+    @mock.patch("vulnpredict.vuln_db.check_vulnerable", return_value=(False, None))
     @mock.patch("vulnpredict.js_analyzer.run_eslint", return_value=[])
     @mock.patch("vulnpredict.js_analyzer.analyze_js_file")
-    def test_includes_dependencies_finding(self, mock_analyze, mock_eslint):
+    def test_includes_dependencies_finding(self, mock_analyze, mock_eslint, mock_vuln):
         mock_analyze.return_value = []
         findings = analyze_js_project(FIXTURES_DIR)
         dep_findings = [f for f in findings if f.get("type") == "dependencies"]
         assert len(dep_findings) == 1
-        assert "express" in dep_findings[0]["dependencies"]
+        dep_names = [d["name"] for d in dep_findings[0]["dependencies"]]
+        assert "express" in dep_names
 
     @mock.patch("vulnpredict.js_analyzer.run_eslint", return_value=[])
     @mock.patch("vulnpredict.js_analyzer.analyze_js_file")
