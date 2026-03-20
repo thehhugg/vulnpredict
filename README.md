@@ -1,5 +1,9 @@
 # VulnPredict
 
+[![CI](https://github.com/thehhugg/vulnpredict/actions/workflows/ci.yml/badge.svg)](https://github.com/thehhugg/vulnpredict/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/thehhugg/vulnpredict/graph/badge.svg)](https://codecov.io/gh/thehhugg/vulnpredict)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **Predictive Vulnerability Intelligence Tool**
 
 VulnPredict is an open source project that applies static analysis and machine learning to uncover potential software vulnerabilities before they are publicly disclosed. It inspects both Python and JavaScript code, learns from historical vulnerability patterns, and highlights risky areas of a codebase.
