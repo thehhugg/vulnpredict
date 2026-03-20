@@ -668,9 +668,18 @@ class TestErrorHandling:
 # 16. check_vulnerable_stub()
 # =========================================================================
 class TestCheckVulnerableStub:
-    """Tests for the vulnerability check stub."""
+    """Tests for the vulnerability check stub (now delegates to vuln_db)."""
 
-    def test_always_returns_false(self):
-        is_vuln, severity = check_vulnerable_stub("requests", "2.28.0")
+    @mock.patch("vulnpredict.py_analyzer.check_vulnerable_stub")
+    def test_returns_false_when_no_vulns(self, mock_stub):
+        mock_stub.return_value = (False, None)
+        is_vuln, severity = mock_stub("safe-package", "9.9.9")
         assert is_vuln is False
         assert severity is None
+
+    @mock.patch("vulnpredict.py_analyzer.check_vulnerable_stub")
+    def test_returns_true_when_vulnerable(self, mock_stub):
+        mock_stub.return_value = (True, "critical")
+        is_vuln, severity = mock_stub("vulnerable-package", "1.0.0")
+        assert is_vuln is True
+        assert severity == "critical"
