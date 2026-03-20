@@ -1,0 +1,82 @@
+site_name: VulnPredict
+site_description: AI-powered vulnerability prediction for source code
+site_url: https://thehhugg.github.io/vulnpredict/
+repo_url: https://github.com/thehhugg/vulnpredict
+repo_name: thehhugg/vulnpredict
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+  - User Guide:
+      - Scanning Projects: guide/scanning.md
+      - Output Formats: guide/output-formats.md
+      - Scan Profiles: guide/profiles.md
+      - Baseline Comparison: guide/baseline.md
+      - Configuration: guide/configuration.md
+  - Rule Authoring: rule-authoring.md
+  - API Reference:
+      - Dashboard API: api/dashboard.md
+      - Python API: api/python.md
+  - Contributing:
+      - Development Setup: contributing/setup.md
+      - Architecture: contributing/architecture.md
+  - Changelog: changelog.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/thehhugg/vulnpredict

@@ -103,5 +103,5 @@ For CI pipelines, use the **standard** or **deep** profile instead:
 vulnpredict scan . --profile standard --format sarif --output results.sarif
 ```
 
-See the [scan profiles documentation](../docs/rule-authoring.md) for details
+See the [scan profiles documentation](guide/profiles.md) for details
 on what each profile includes.
