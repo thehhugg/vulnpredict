@@ -24,4 +24,4 @@ From the VulnPredict project root, run:
 python -m vulnpredict scan demo_project
 ```
 
-You should see findings for code injection, SQL injection, XSS, sensitive data, and outdated dependencies. 
+You should see findings for code injection, SQL injection, XSS, sensitive data, and outdated dependencies.
