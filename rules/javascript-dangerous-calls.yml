@@ -1,0 +1,54 @@
+# VulnPredict built-in rules: dangerous function calls (JavaScript)
+
+rules:
+  - id: VP-JS-001
+    name: eval-injection
+    severity: critical
+    confidence: high
+    languages: [javascript, typescript]
+    category: injection
+    message: "Use of eval() with potentially untrusted input"
+    pattern:
+      type: function_call
+      name: eval
+    cwe: CWE-95
+    tags: [injection, rce]
+
+  - id: VP-JS-002
+    name: function-constructor
+    severity: critical
+    confidence: high
+    languages: [javascript, typescript]
+    category: injection
+    message: "Use of Function constructor can execute arbitrary code"
+    pattern:
+      type: function_call
+      name: Function
+    cwe: CWE-95
+    tags: [injection, rce]
+
+  - id: VP-JS-003
+    name: settimeout-string
+    severity: high
+    confidence: medium
+    languages: [javascript, typescript]
+    category: injection
+    message: "setTimeout with string argument acts like eval()"
+    pattern:
+      type: function_call
+      name: setTimeout
+    cwe: CWE-95
+    tags: [injection]
+
+  - id: VP-JS-004
+    name: setinterval-string
+    severity: high
+    confidence: medium
+    languages: [javascript, typescript]
+    category: injection
+    message: "setInterval with string argument acts like eval()"
+    pattern:
+      type: function_call
+      name: setInterval
+    cwe: CWE-95
+    tags: [injection]

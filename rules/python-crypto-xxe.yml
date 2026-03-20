@@ -1,0 +1,154 @@
+# VulnPredict built-in rules: weak cryptography, XXE, path traversal, etc. (Python)
+
+rules:
+  - id: VP-PY-030
+    name: weak-hash-md5
+    severity: medium
+    confidence: high
+    languages: [python]
+    category: cryptography
+    message: "Use of MD5 hash — cryptographically broken, do not use for security"
+    pattern:
+      type: function_call
+      names:
+        - hashlib.md5
+        - md5
+    cwe: CWE-328
+    tags: [crypto, weak-hash]
+    references:
+      - https://cwe.mitre.org/data/definitions/328.html
+
+  - id: VP-PY-031
+    name: weak-hash-sha1
+    severity: medium
+    confidence: high
+    languages: [python]
+    category: cryptography
+    message: "Use of SHA1 hash — cryptographically weak, prefer SHA-256+"
+    pattern:
+      type: function_call
+      names:
+        - hashlib.sha1
+        - sha1
+    cwe: CWE-328
+    tags: [crypto, weak-hash]
+
+  - id: VP-PY-032
+    name: weak-cipher-des
+    severity: high
+    confidence: high
+    languages: [python]
+    category: cryptography
+    message: "Use of DES cipher — cryptographically broken"
+    pattern:
+      type: function_call
+      names:
+        - Crypto.Cipher.DES.new
+        - Cryptodome.Cipher.DES.new
+    cwe: CWE-327
+    tags: [crypto, weak-cipher]
+
+  - id: VP-PY-040
+    name: xxe-xml-parse
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: xxe
+    message: "XML parsing may be vulnerable to XXE (external entity injection)"
+    pattern:
+      type: function_call
+      names:
+        - xml.etree.ElementTree.parse
+        - xml.etree.ElementTree.fromstring
+        - xml.sax.parse
+        - xml.sax.parseString
+        - xml.dom.minidom.parse
+        - xml.dom.minidom.parseString
+        - lxml.etree.parse
+        - lxml.etree.fromstring
+        - ET.parse
+        - ET.fromstring
+    cwe: CWE-611
+    tags: [xxe, xml]
+    references:
+      - https://cwe.mitre.org/data/definitions/611.html
+
+  - id: VP-PY-050
+    name: path-traversal
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: path-traversal
+    message: "File operation with potentially user-controlled path"
+    pattern:
+      type: function_call
+      names:
+        - open
+        - shutil.copy
+        - shutil.copy2
+        - shutil.move
+        - shutil.rmtree
+        - os.remove
+        - os.unlink
+        - os.rename
+    cwe: CWE-22
+    tags: [path-traversal, file-access]
+    references:
+      - https://cwe.mitre.org/data/definitions/22.html
+
+  - id: VP-PY-060
+    name: template-injection
+    severity: critical
+    confidence: medium
+    languages: [python]
+    category: injection
+    message: "Server-side template injection risk"
+    pattern:
+      type: function_call
+      names:
+        - jinja2.Environment.from_string
+        - jinja2.Template
+        - mako.template.Template
+        - flask.render_template_string
+        - render_template_string
+        - Template
+    cwe: CWE-1336
+    tags: [injection, ssti]
+
+  - id: VP-PY-070
+    name: open-redirect
+    severity: medium
+    confidence: medium
+    languages: [python]
+    category: redirect
+    message: "Redirect with potentially user-controlled URL (open redirect)"
+    pattern:
+      type: function_call
+      names:
+        - flask.redirect
+        - redirect
+        - django.shortcuts.redirect
+        - HttpResponseRedirect
+    cwe: CWE-601
+    tags: [redirect]
+    references:
+      - https://cwe.mitre.org/data/definitions/601.html
+
+  - id: VP-PY-080
+    name: ldap-injection
+    severity: high
+    confidence: medium
+    languages: [python]
+    category: injection
+    message: "LDAP query with potentially untrusted input"
+    pattern:
+      type: function_call
+      names:
+        - ldap.search_s
+        - ldap.search
+        - ldap.search_ext_s
+        - ldap3.Connection.search
+    cwe: CWE-90
+    tags: [injection, ldap]
+    references:
+      - https://cwe.mitre.org/data/definitions/90.html

@@ -1,0 +1,65 @@
+# VulnPredict built-in rules: insecure deserialization (Python)
+
+rules:
+  - id: VP-PY-010
+    name: pickle-deserialization
+    severity: critical
+    confidence: high
+    languages: [python]
+    category: deserialization
+    message: "Insecure deserialization via pickle — loading untrusted data can lead to RCE"
+    pattern:
+      type: function_call
+      names:
+        - pickle.loads
+        - pickle.load
+        - pickle.Unpickler
+        - cPickle.loads
+        - cPickle.load
+    cwe: CWE-502
+    tags: [deserialization, rce]
+    references:
+      - https://cwe.mitre.org/data/definitions/502.html
+
+  - id: VP-PY-011
+    name: yaml-unsafe-load
+    severity: critical
+    confidence: high
+    languages: [python]
+    category: deserialization
+    message: "Use of yaml.load() without SafeLoader allows arbitrary code execution"
+    pattern:
+      type: function_call
+      names:
+        - yaml.load
+        - yaml.unsafe_load
+    cwe: CWE-502
+    tags: [deserialization, rce]
+
+  - id: VP-PY-012
+    name: marshal-deserialization
+    severity: high
+    confidence: high
+    languages: [python]
+    category: deserialization
+    message: "Insecure deserialization via marshal module"
+    pattern:
+      type: function_call
+      names:
+        - marshal.loads
+        - marshal.load
+    cwe: CWE-502
+    tags: [deserialization]
+
+  - id: VP-PY-013
+    name: jsonpickle-deserialization
+    severity: critical
+    confidence: high
+    languages: [python]
+    category: deserialization
+    message: "Insecure deserialization via jsonpickle"
+    pattern:
+      type: function_call
+      name: jsonpickle.decode
+    cwe: CWE-502
+    tags: [deserialization, rce]

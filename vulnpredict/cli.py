@@ -237,6 +237,12 @@ def _score_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     default=None,
     help="Only show findings at or above this severity level.",
 )
+@click.option(
+    "--rules-dir",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="Additional directory of YAML rule files (may be repeated).",
+)
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -247,6 +253,7 @@ def scan(
     baseline: Optional[str],
     show_suppressed: bool,
     min_severity: Optional[str],
+    rules_dir: tuple,
 ) -> None:
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
@@ -256,6 +263,13 @@ def scan(
     scan_start = time.time()
     abs_path = os.path.abspath(path)
     logger.info("Starting scan of %s (format=%s)", abs_path, output_format)
+
+    # Load rule engine
+    from .rules import RuleIndex, load_all_rules
+
+    all_rules = load_all_rules(extra_dirs=list(rules_dir) if rules_dir else None)
+    rule_index = RuleIndex(all_rules)
+    logger.info("Loaded %d detection rules", len(rule_index))
 
     # Load suppression configuration
     from .suppression import IgnoreFile, apply_suppressions, load_baseline
