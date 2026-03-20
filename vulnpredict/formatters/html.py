@@ -29,7 +29,7 @@ _SEVERITY_COLORS = {
 
 def _classify_severity(finding: dict) -> str:
     """Derive a severity label from a finding dictionary."""
-    sev = finding.get("severity", "").lower().strip()
+    sev: str = str(finding.get("severity", "")).lower().strip()
     if sev in _SEVERITY_ORDER:
         return sev
     confidence = finding.get("confidence", "").lower().strip()
@@ -40,7 +40,7 @@ def _classify_severity(finding: dict) -> str:
     return "medium"
 
 
-def _escape(text) -> str:
+def _escape(text: object) -> str:
     """HTML-escape a value, handling None."""
     return html.escape(str(text)) if text else ""
 

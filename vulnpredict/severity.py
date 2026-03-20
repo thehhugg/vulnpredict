@@ -4,7 +4,10 @@ Provides deterministic severity and confidence ratings for each static analysis
 rule, independent of the ML model, to deliver consistent and explainable results.
 """
 
+from __future__ import annotations
+
 from enum import IntEnum
+from typing import Any, Dict, List, Tuple
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -283,7 +286,7 @@ def sort_by_severity(findings: list, descending: bool = True) -> list:
     Returns:
         Sorted list of findings.
     """
-    def sort_key(f):
+    def sort_key(f: Dict[str, Any]) -> tuple:
         sev = Severity.from_str(f.get("severity", "low"))
         score = f.get("combined_score", 0.0)
         return (sev, score)

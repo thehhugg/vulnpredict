@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import ast
 import datetime
 import os
 import re
 import subprocess
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import requests
 import torch
@@ -219,7 +222,7 @@ _tokenizer = None
 _model = None
 
 
-def get_git_churn_features(filepath):
+def get_git_churn_features(filepath: str) -> Dict[str, int]:
     """
     Extract commit_count, unique_authors, last_modified_days for a file using git log.
     Returns a dict with these features, or zeros if not a git repo.
@@ -245,7 +248,7 @@ def get_git_churn_features(filepath):
         return {"commit_count": 0, "unique_authors": 0, "last_modified_days": 0}
 
 
-def detect_sensitive_vars(node):
+def detect_sensitive_vars(node: ast.AST) -> Set[str]:
     """
     Scan variable names and function arguments for sensitive keywords.
     Returns a set of sensitive variable names.
@@ -269,12 +272,12 @@ def detect_sensitive_vars(node):
 
 
 class FunctionAnalyzer(ast.NodeVisitor):
-    def __init__(self):
-        self.functions = []
+    def __init__(self) -> None:
+        self.functions: List[Dict[str, Any]] = []
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         sensitive_vars = detect_sensitive_vars(node)
-        func_info = {
+        func_info: Dict[str, Any] = {
             "name": node.name,
             "lineno": node.lineno,
             "length": len(node.body),
@@ -322,7 +325,7 @@ class FunctionAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     @staticmethod
-    def _has_safe_loader(call_node):
+    def _has_safe_loader(call_node: ast.Call) -> bool:
         """Check if a yaml.load() call uses Loader=SafeLoader or similar safe loaders.
 
         BaseLoader is included because it only resolves basic YAML tags and does
@@ -339,14 +342,14 @@ class FunctionAnalyzer(ast.NodeVisitor):
                         return True
         return False
 
-    def _get_func_name(self, node):
+    def _get_func_name(self, node: ast.AST) -> str:
         if isinstance(node, ast.Name):
             return node.id
         elif isinstance(node, ast.Attribute):
             return f"{self._get_func_name(node.value)}.{node.attr}"
         return ""
 
-    def _cyclomatic_complexity(self, node):
+    def _cyclomatic_complexity(self, node: ast.AST) -> int:
         # Simple cyclomatic complexity: 1 + number of branching points
         complexity = 1
         for child in ast.walk(node):
@@ -354,17 +357,17 @@ class FunctionAnalyzer(ast.NodeVisitor):
                 complexity += 1
         return complexity
 
-    def _max_nesting_depth(self, node):
-        def depth(n, current=0):
+    def _max_nesting_depth(self, node: ast.AST) -> int:
+        def depth(n: ast.AST, current: int = 0) -> int:
             if not hasattr(n, "body") or not isinstance(n.body, list):
                 return current
             if not n.body:
                 return current
-            return max([depth(child, current + 1) for child in n.body] + [current])
+            return int(max([depth(child, current + 1) for child in n.body] + [current]))
 
         return depth(node)
 
-    def _input_validation(self, node):
+    def _input_validation(self, node: ast.AST) -> List[str]:
         found = set()
         for child in ast.walk(node):
             if isinstance(child, ast.Call):
@@ -377,7 +380,7 @@ class FunctionAnalyzer(ast.NodeVisitor):
         return list(found)
 
 
-def get_code_embedding(code):
+def get_code_embedding(code: str) -> List[float]:
     global _tokenizer, _model
     if _tokenizer is None or _model is None:
         _tokenizer = AutoTokenizer.from_pretrained(CODEBERT_MODEL)
@@ -387,10 +390,10 @@ def get_code_embedding(code):
         outputs = _model(**inputs)
         # Use [CLS] token embedding as representation
         embedding = outputs.last_hidden_state[:, 0, :].squeeze().numpy()
-    return embedding.tolist()
+    return list(embedding.tolist())
 
 
-def analyze_python_file(filepath):
+def analyze_python_file(filepath: str) -> List[Dict[str, Any]]:
     """
     Analyze a Python file for complexity and dangerous patterns.
     Returns a list of findings.
@@ -453,7 +456,7 @@ def analyze_python_file(filepath):
     return findings
 
 
-def run_bandit(filepath):
+def run_bandit(filepath: str) -> List[Dict[str, Any]]:
     """
     Run bandit on the given file and return parsed results.
     """
@@ -485,7 +488,7 @@ def run_bandit(filepath):
         return []
 
 
-def parse_requirement_line(line):
+def parse_requirement_line(line: str) -> Tuple[Optional[str], Optional[str]]:
     # Parse lines like 'package==1.2.3' or 'package>=1.0.0'
     m = re.match(r"([a-zA-Z0-9_\-]+)([=<>!~]+([a-zA-Z0-9_.]+))?", line)
     if m:
@@ -495,18 +498,18 @@ def parse_requirement_line(line):
     return None, None
 
 
-def check_pypi_latest_version(package):
+def check_pypi_latest_version(package: str) -> Optional[str]:
     try:
         resp = requests.get(f"https://pypi.org/pypi/{package}/json", timeout=10)
         if resp.status_code == 200:
             data = resp.json()
-            return data["info"]["version"]
+            return str(data["info"]["version"])
     except Exception:
         pass
     return None
 
 
-def check_vulnerable_stub(package, version):
+def check_vulnerable_stub(package: str, version: Optional[str]) -> Tuple[bool, Optional[str]]:
     """Legacy stub — kept for backward compatibility.  Use :func:`check_vulnerable` instead."""
     try:
         from .vuln_db import check_vulnerable
@@ -516,11 +519,13 @@ def check_vulnerable_stub(package, version):
             return True, details.get("severity")
         return False, None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("OSV lookup failed for %s@%s: %s", package, version, exc)
+        from .logging_config import get_logger as _get_logger
+        _logger = _get_logger(__name__)
+        _logger.warning("OSV lookup failed for %s@%s: %s", package, version, exc)
         return False, None
 
 
-def extract_python_dependencies(path):
+def extract_python_dependencies(path: str) -> Tuple[List[Dict[str, Any]], int, int, Optional[str]]:
     req_path = os.path.join(path, "requirements.txt")
     deps = []
     num_outdated = 0
@@ -534,7 +539,7 @@ def extract_python_dependencies(path):
                     continue
                 name, version = parse_requirement_line(line)
                 if name:
-                    dep = {"name": name, "version": version}
+                    dep: Dict[str, Any] = {"name": name, "version": version}
                     # Outdated check
                     latest = check_pypi_latest_version(name)
                     if latest and version and latest != version:
@@ -555,7 +560,7 @@ def extract_python_dependencies(path):
     return deps, num_vuln, num_outdated, max_severity
 
 
-def taint_analysis(filepath):
+def taint_analysis(filepath: str) -> List[Dict[str, Any]]:
     """
     Perform simple taint analysis: track untrusted sources to dangerous sinks.
     Returns a list of taint findings.
@@ -604,7 +609,7 @@ def taint_analysis(filepath):
     return findings
 
 
-def analyze_python_project(path):
+def analyze_python_project(path: str) -> List[Dict[str, Any]]:
     """
     Recursively analyze all .py files in a directory.
     Returns a list of findings, including a dependencies finding if requirements.txt is present.

@@ -1,6 +1,9 @@
 """Machine learning model training and prediction for VulnPredict."""
 
+from __future__ import annotations
+
 import os
+from typing import Any, Dict, List, Sequence
 
 import joblib
 import numpy as np
@@ -14,7 +17,7 @@ from .logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def extract_features(findings):
+def extract_features(findings: Sequence[Dict[str, Any]]) -> pd.DataFrame:
     """
     Convert analyzer findings (list of dicts) to a DataFrame of features for ML.
     Ensures only numeric columns are returned, and fills NaN/inf with 0.
@@ -108,7 +111,11 @@ def extract_features(findings):
     return df
 
 
-def train_model(features, labels, model_path="vulnpredict_model.joblib"):
+def train_model(
+    features: pd.DataFrame,
+    labels: pd.Series,
+    model_path: str = "vulnpredict_model.joblib",
+) -> RandomForestClassifier:
     """
     Train a RandomForest model and save it to disk.
     Handles very small datasets by training/testing on all data if needed.
@@ -141,7 +148,7 @@ def train_model(features, labels, model_path="vulnpredict_model.joblib"):
     return clf
 
 
-def load_model(model_path="vulnpredict_model.joblib"):
+def load_model(model_path: str = "vulnpredict_model.joblib") -> Any:
     """Load a trained model from disk."""
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
@@ -152,7 +159,10 @@ def load_model(model_path="vulnpredict_model.joblib"):
         raise
 
 
-def predict(findings, model_path="vulnpredict_model.joblib"):
+def predict(
+    findings: Sequence[Dict[str, Any]],
+    model_path: str = "vulnpredict_model.joblib",
+) -> List[Dict[str, Any]]:
     """
     Score new findings using the trained model.
     Returns a list of (finding, score) tuples.

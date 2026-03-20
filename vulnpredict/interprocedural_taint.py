@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import ast
 import os
 from collections import deque
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 DANGEROUS_FUNCTIONS = {
     "eval",
@@ -32,7 +35,7 @@ TAINT_SOURCES = {
 
 
 class FunctionInfo:
-    def __init__(self, name, args, node, calls, filename, lineno):
+    def __init__(self, name: str, args: List[str], node: ast.FunctionDef, calls: List[Tuple[str, Dict[str, str], int]], filename: str, lineno: int) -> None:
         self.name = name
         self.args = args
         self.node = node
@@ -42,11 +45,11 @@ class FunctionInfo:
 
 
 class CallVisitor(ast.NodeVisitor):
-    def __init__(self, func_args):
-        self.calls = []  # (callee_name, arg_map, call_lineno)
+    def __init__(self, func_args: List[str]) -> None:
+        self.calls: List[Tuple[str, Dict[str, str], int]] = []
         self.func_args = func_args
 
-    def visit_Call(self, node):
+    def visit_Call(self, node: ast.Call) -> None:
         callee = self._get_func_name(node.func)
         arg_map = {}
         for i, arg in enumerate(node.args):
@@ -56,7 +59,7 @@ class CallVisitor(ast.NodeVisitor):
         self.calls.append((callee, arg_map, node.lineno))
         self.generic_visit(node)
 
-    def _get_func_name(self, node):
+    def _get_func_name(self, node: ast.AST) -> str:
         if isinstance(node, ast.Name):
             return node.id
         elif isinstance(node, ast.Attribute):
@@ -64,7 +67,7 @@ class CallVisitor(ast.NodeVisitor):
         return ""
 
 
-def index_functions(path):
+def index_functions(path: str) -> Dict[str, FunctionInfo]:
     """
     Parse all .py files and build a global function index and call graph.
     Returns: func_index (name -> FunctionInfo)
@@ -97,7 +100,7 @@ def index_functions(path):
     return func_index
 
 
-def find_taint_sources(node):
+def find_taint_sources(node: ast.AST) -> Set[str]:
     sources = set()
     for child in ast.walk(node):
         if isinstance(child, ast.Assign) and isinstance(child.value, ast.Call):
@@ -109,7 +112,7 @@ def find_taint_sources(node):
     return sources
 
 
-def find_sinks(node):
+def find_sinks(node: ast.AST) -> List[Tuple[str, int, ast.Call]]:
     sinks = []
     for child in ast.walk(node):
         if isinstance(child, ast.Call):
@@ -119,7 +122,7 @@ def find_sinks(node):
     return sinks
 
 
-def analyze_project(path, max_depth=10):
+def analyze_project(path: str, max_depth: int = 10) -> List[Dict[str, Any]]:
     """
     Perform robust interprocedural taint analysis on a Python project.
     Returns a list of findings: each is a dict with source, sink, call_chain, and variable trace.
@@ -132,7 +135,7 @@ def analyze_project(path, max_depth=10):
         if not sources:
             continue
         # Worklist: (current_func, tainted_vars, call_chain, var_trace, depth)
-        worklist = deque()
+        worklist: deque = deque()
         worklist.append((func_name, set(sources), [func_name], [list(sources)], 0))
         visited = set()
         while worklist:

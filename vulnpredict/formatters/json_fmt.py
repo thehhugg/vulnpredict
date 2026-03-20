@@ -16,7 +16,7 @@ try:
     try:
         import tomllib
     except ModuleNotFoundError:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     import os
 
@@ -168,15 +168,21 @@ def format_json(
         sev = f.get("severity", "low")
         severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
-    output = {
+    metadata: Dict[str, Any] = {
+        "tool": "vulnpredict",
+        "version": _VERSION,
+        "scan_timestamp": datetime.now(timezone.utc).isoformat(),
+        "scan_path": scan_path,
+    }
+    if scan_duration is not None:
+        metadata["scan_duration_seconds"] = round(scan_duration, 3)
+    if file_count is not None:
+        metadata["files_scanned"] = file_count
+
+    output: Dict[str, Any] = {
         "$schema": "vulnpredict-json-v1",
         "schema_version": SCHEMA_VERSION,
-        "metadata": {
-            "tool": "vulnpredict",
-            "version": _VERSION,
-            "scan_timestamp": datetime.now(timezone.utc).isoformat(),
-            "scan_path": scan_path,
-        },
+        "metadata": metadata,
         "summary": {
             "total_findings": len(normalized),
             "by_severity": severity_counts,
@@ -184,11 +190,6 @@ def format_json(
         },
         "findings": normalized,
     }
-
-    if scan_duration is not None:
-        output["metadata"]["scan_duration_seconds"] = round(scan_duration, 3)
-    if file_count is not None:
-        output["metadata"]["files_scanned"] = file_count
 
     if compact:
         return json.dumps(output, separators=(",", ":"), default=str)

@@ -75,7 +75,7 @@ class VulnCache:
             if time.time() - entry.get("ts", 0) > self.ttl:
                 logger.debug("Cache expired for %s:%s@%s", ecosystem, package, version)
                 return None
-            return entry.get("vulns", [])
+            return list(entry.get("vulns", []))
         except (json.JSONDecodeError, OSError) as exc:
             logger.debug("Cache read error for %s:%s@%s: %s", ecosystem, package, version, exc)
             return None
@@ -273,7 +273,7 @@ def _request_with_retry(
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
-            return resp.json()
+            return dict(resp.json())
         except requests.exceptions.Timeout:
             wait = BACKOFF_BASE * (2 ** attempt)
             logger.warning("OSV.dev request timed out for %s (attempt %d/%d)", label, attempt + 1, MAX_RETRIES)

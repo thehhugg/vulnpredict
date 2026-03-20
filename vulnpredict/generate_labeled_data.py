@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any, Dict
+
 import click
 import pandas as pd
 
@@ -9,7 +13,7 @@ from .py_analyzer import analyze_python_project
 logger = get_logger(__name__)
 
 
-def auto_label(finding):
+def auto_label(finding: Dict[str, Any]) -> int:
     # Heuristic: label as vulnerable if dangerous_calls, high complexity, high nesting, or interprocedural taint
     if (
         finding.get("dangerous_calls")
@@ -25,7 +29,7 @@ def auto_label(finding):
 @click.command()
 @click.argument("code_dir")
 @click.argument("output_csv")
-def main(code_dir, output_csv):
+def main(code_dir: str, output_csv: str) -> None:
     """
     Analyze CODE_DIR, label findings, and save to OUTPUT_CSV for ML training.
     """
