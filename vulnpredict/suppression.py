@@ -236,28 +236,94 @@ def _finding_fingerprint(finding: Dict[str, Any]) -> str:
     return "|".join(parts)
 
 
+def _finding_fuzzy_key(finding: Dict[str, Any]) -> Tuple[str, str, str]:
+    """Create a fuzzy key for baseline matching (file + rule_id + message).
+
+    This key omits the line number so that findings that moved by a few
+    lines (due to small code edits) are still recognised as known.
+    """
+    return (
+        finding.get("file", ""),
+        finding.get("rule_id", finding.get("type", "")),
+        finding.get("message", finding.get("description", "")),
+    )
+
+
 def filter_by_baseline(
-    findings: List[Dict[str, Any]], baseline: List[Dict[str, Any]]
+    findings: List[Dict[str, Any]],
+    baseline: List[Dict[str, Any]],
+    *,
+    fuzzy_lines: int = 5,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Partition *findings* into new and baseline-known findings.
+
+    Matching strategy:
+    1. **Exact match** — file + line + rule_id + message.
+    2. **Fuzzy match** — file + rule_id + message with a line-number
+       tolerance of *fuzzy_lines* (default 5).
 
     Returns:
         A tuple of (new_findings, known_findings).
     """
+    # Build exact fingerprint set
     baseline_fps = {_finding_fingerprint(f) for f in baseline}
+
+    # Build fuzzy index: (file, rule_id, message) -> set of line numbers
+    fuzzy_index: Dict[Tuple[str, str, str], set] = {}
+    for f in baseline:
+        key = _finding_fuzzy_key(f)
+        fuzzy_index.setdefault(key, set()).add(f.get("line", 0))
+
     new = []
     known = []
     for f in findings:
+        # 1. Exact match
         if _finding_fingerprint(f) in baseline_fps:
             known.append(f)
-        else:
-            new.append(f)
+            continue
+
+        # 2. Fuzzy match (same file + rule + message, line within tolerance)
+        fkey = _finding_fuzzy_key(f)
+        if fkey in fuzzy_index:
+            fline = f.get("line", 0)
+            if any(abs(fline - bl) <= fuzzy_lines for bl in fuzzy_index[fkey]):
+                known.append(f)
+                continue
+
+        new.append(f)
+
     logger.info(
         "Baseline comparison: %d new, %d known (suppressed)",
         len(new),
         len(known),
     )
     return new, known
+
+
+def save_baseline(
+    findings: List[Dict[str, Any]],
+    output_path: str,
+    scan_path: str = "",
+    scan_duration: float = 0.0,
+    file_count: int = 0,
+) -> None:
+    """Save the current scan results as a baseline file (JSON format).
+
+    The file uses the same schema as ``vulnpredict scan --format json``
+    so it can be loaded by :func:`load_baseline`.
+    """
+    from .formatters.json_fmt import format_json
+
+    json_str = format_json(
+        findings,
+        scan_path=scan_path,
+        scan_duration=scan_duration,
+        file_count=file_count,
+    )
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(json_str)
+        f.write("\n")
+    logger.info("Baseline saved to %s (%d findings)", output_path, len(findings))
 
 
 # ---------------------------------------------------------------------------

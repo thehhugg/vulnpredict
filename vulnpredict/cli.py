@@ -249,6 +249,12 @@ def _score_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     default=None,
     help="Scan profile controlling analysis depth (default: standard).",
 )
+@click.option(
+    "--save-baseline",
+    type=click.Path(),
+    default=None,
+    help="Save current scan results as a baseline file for future differential scans.",
+)
 @click.pass_context
 def scan(
     ctx: click.Context,
@@ -261,6 +267,7 @@ def scan(
     min_severity: Optional[str],
     rules_dir: tuple,
     profile: Optional[str],
+    save_baseline: Optional[str],
 ) -> None:
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
@@ -287,7 +294,7 @@ def scan(
     logger.info("Loaded %d detection rules", len(rule_index))
 
     # Load suppression configuration
-    from .suppression import IgnoreFile, apply_suppressions, load_baseline
+    from .suppression import IgnoreFile, apply_suppressions, load_baseline, save_baseline as _save_baseline
 
     ignore_file = IgnoreFile.from_project(abs_path)
     baseline_findings = load_baseline(baseline) if baseline else None
@@ -324,6 +331,17 @@ def scan(
         ignore_file=ignore_file,
         baseline=baseline_findings,
     )
+
+    # Save baseline if requested (uses all findings before severity filtering)
+    if save_baseline:
+        _save_baseline(
+            all_findings,
+            output_path=save_baseline,
+            scan_path=path,
+            scan_duration=scan_duration,
+            file_count=file_count,
+        )
+        click.echo(f"[VulnPredict] Baseline saved to {save_baseline} ({len(all_findings)} findings)")
 
     # Score findings with ML model (only if profile enables it and model available)
     if scan_profile.ml_scoring and model_available:
