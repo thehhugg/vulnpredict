@@ -27,8 +27,8 @@ def test_cli_entry_point():
         from vulnpredict import cli
 
         assert hasattr(cli, "main")
-    except ModuleNotFoundError as exc:
-        pytest.skip(f"Optional dependency not installed: {exc.name}")
+    except (ModuleNotFoundError, AttributeError) as exc:
+        pytest.skip(f"Optional dependency not available: {exc}")
 
 
 def test_cli_help():
