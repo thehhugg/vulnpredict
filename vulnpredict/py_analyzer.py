@@ -21,6 +21,158 @@ DANGEROUS_FUNCTIONS = {
 VALIDATION_MODULES = {"re", "json", "html", "bleach"}
 VALIDATION_FUNCTIONS = {"escape", "loads", "dumps", "clean", "fullmatch", "match", "search", "sub", "subn"}
 
+# --- Extended vulnerability patterns ---
+
+# Deserialization sinks — loading untrusted data can lead to RCE
+DESERIALIZATION_SINKS = {
+    "pickle.loads",
+    "pickle.load",
+    "pickle.Unpickler",
+    "cPickle.loads",
+    "cPickle.load",
+    "marshal.loads",
+    "marshal.load",
+    "shelve.open",
+    "yaml.load",          # safe only with Loader=SafeLoader
+    "yaml.unsafe_load",
+    "jsonpickle.decode",
+    "dill.loads",
+    "dill.load",
+    "cloudpickle.loads",
+    "cloudpickle.load",
+    # from-import aliases
+    "loads",  # from pickle import loads
+    "load",   # from pickle import load
+}
+
+# SSRF sinks — HTTP requests with user-controlled URLs
+SSRF_SINKS = {
+    "requests.get",
+    "requests.post",
+    "requests.put",
+    "requests.delete",
+    "requests.patch",
+    "requests.head",
+    "requests.options",
+    "requests.request",
+    "urllib.request.urlopen",
+    "urllib.request.Request",
+    "urllib.request.urlretrieve",
+    "httpx.get",
+    "httpx.post",
+    "httpx.put",
+    "httpx.delete",
+    "httpx.request",
+    "httpx.AsyncClient.get",
+    "httpx.AsyncClient.post",
+    "httpx.Client.get",
+    "httpx.Client.post",
+    "aiohttp.ClientSession.get",
+    "aiohttp.ClientSession.post",
+    # Instance method calls (session.get, client.post, etc.)
+    "session.get",
+    "session.post",
+    "session.put",
+    "session.delete",
+    "session.request",
+    "client.get",
+    "client.post",
+    # from-import aliases
+    "urlopen",
+}
+
+# Path traversal sinks — file operations with user-controlled paths
+# NOTE: os.path.join and pathlib.Path are path constructors, not sinks.
+# They are tracked via taint propagation instead.
+PATH_TRAVERSAL_SINKS = {
+    "open",
+    "shutil.copy",
+    "shutil.copy2",
+    "shutil.move",
+    "shutil.rmtree",
+    "shutil.make_archive",
+    "shutil.unpack_archive",
+    "os.remove",
+    "os.unlink",
+    "os.rename",
+    "os.makedirs",
+    "os.listdir",
+    "os.mkdir",
+    "os.symlink",
+    "os.link",
+    "os.chdir",
+    "os.walk",
+}
+
+# XXE sinks — XML parsers that may allow external entities
+XXE_SINKS = {
+    "xml.etree.ElementTree.parse",
+    "xml.etree.ElementTree.fromstring",
+    "xml.sax.parse",
+    "xml.sax.parseString",
+    "xml.dom.minidom.parse",
+    "xml.dom.minidom.parseString",
+    "xml.dom.pulldom.parse",
+    "lxml.etree.parse",
+    "lxml.etree.fromstring",
+    # Common import aliases (import xml.etree.ElementTree as ET)
+    "ET.parse",
+    "ET.fromstring",
+    "ET.iterparse",
+    "etree.parse",
+    "etree.fromstring",
+    "minidom.parse",
+    "minidom.parseString",
+}
+
+# Weak cryptography — hashes and ciphers that should not be used for security
+WEAK_CRYPTO_FUNCTIONS = {
+    "hashlib.md5",
+    "hashlib.sha1",
+    "Crypto.Cipher.DES.new",
+    "Crypto.Cipher.ARC4.new",
+    "Cryptodome.Cipher.DES.new",
+    "Cryptodome.Cipher.ARC4.new",
+    # from-import aliases
+    "md5",   # from hashlib import md5
+    "sha1",  # from hashlib import sha1
+}
+
+# Template injection sinks
+TEMPLATE_INJECTION_SINKS = {
+    "jinja2.Environment.from_string",
+    "jinja2.Template",
+    "mako.template.Template",
+    "mako.lookup.TemplateLookup",
+    "django.template.Template",
+    "flask.render_template_string",
+    # from-import aliases
+    "Template",
+    "render_template_string",
+}
+
+# Open redirect sinks
+OPEN_REDIRECT_SINKS = {
+    "flask.redirect",
+    "redirect",
+    "django.shortcuts.redirect",
+    "HttpResponseRedirect",
+    "werkzeug.utils.redirect",
+}
+
+# LDAP injection sinks
+LDAP_INJECTION_SINKS = {
+    "ldap.search_s",
+    "ldap.search",
+    "ldap.search_ext_s",
+    "ldap3.Connection.search",
+    # Instance method calls (conn.search_s, conn.search)
+    "conn.search_s",
+    "conn.search",
+    "conn.search_ext_s",
+    "connection.search",
+}
+
 # Sensitive data keywords
 SENSITIVE_KEYWORDS = {
     "password",
@@ -50,7 +202,16 @@ TAINT_SOURCES = {
     "read",
     "recv",
 }
-TAINT_SINKS = DANGEROUS_FUNCTIONS | {"cursor.execute", "execute", "os.popen", "os.popen2", "os.popen3", "os.popen4"}
+TAINT_SINKS = (
+    DANGEROUS_FUNCTIONS
+    | {"cursor.execute", "execute", "os.popen", "os.popen2", "os.popen3", "os.popen4"}
+    | DESERIALIZATION_SINKS
+    | SSRF_SINKS
+    | PATH_TRAVERSAL_SINKS
+    | XXE_SINKS
+    | TEMPLATE_INJECTION_SINKS
+    | LDAP_INJECTION_SINKS
+)
 
 # CodeBERT model for embeddings
 CODEBERT_MODEL = "microsoft/codebert-base"
@@ -118,6 +279,14 @@ class FunctionAnalyzer(ast.NodeVisitor):
             "lineno": node.lineno,
             "length": len(node.body),
             "dangerous_calls": [],
+            "deserialization_calls": [],
+            "ssrf_calls": [],
+            "path_traversal_calls": [],
+            "xxe_calls": [],
+            "weak_crypto_calls": [],
+            "template_injection_calls": [],
+            "open_redirect_calls": [],
+            "ldap_injection_calls": [],
             "cyclomatic_complexity": self._cyclomatic_complexity(node),
             "max_nesting_depth": self._max_nesting_depth(node),
             "input_validation": self._input_validation(node),
@@ -129,8 +298,46 @@ class FunctionAnalyzer(ast.NodeVisitor):
                 func_name = self._get_func_name(child.func)
                 if func_name in DANGEROUS_FUNCTIONS:
                     func_info["dangerous_calls"].append(func_name)
+                if func_name in DESERIALIZATION_SINKS:
+                    # yaml.load is safe if Loader=SafeLoader is used
+                    if func_name == "yaml.load" and self._has_safe_loader(child):
+                        pass
+                    else:
+                        func_info["deserialization_calls"].append(func_name)
+                if func_name in SSRF_SINKS:
+                    func_info["ssrf_calls"].append(func_name)
+                if func_name in PATH_TRAVERSAL_SINKS:
+                    func_info["path_traversal_calls"].append(func_name)
+                if func_name in XXE_SINKS:
+                    func_info["xxe_calls"].append(func_name)
+                if func_name in WEAK_CRYPTO_FUNCTIONS:
+                    func_info["weak_crypto_calls"].append(func_name)
+                if func_name in TEMPLATE_INJECTION_SINKS:
+                    func_info["template_injection_calls"].append(func_name)
+                if func_name in OPEN_REDIRECT_SINKS:
+                    func_info["open_redirect_calls"].append(func_name)
+                if func_name in LDAP_INJECTION_SINKS:
+                    func_info["ldap_injection_calls"].append(func_name)
         self.functions.append(func_info)
         self.generic_visit(node)
+
+    @staticmethod
+    def _has_safe_loader(call_node):
+        """Check if a yaml.load() call uses Loader=SafeLoader or similar safe loaders.
+
+        BaseLoader is included because it only resolves basic YAML tags and does
+        not construct arbitrary Python objects, making it safe for untrusted input.
+        """
+        safe_loaders = {"SafeLoader", "CSafeLoader", "BaseLoader"}
+        for kw in call_node.keywords:
+            if kw.arg == "Loader":
+                if isinstance(kw.value, ast.Attribute):
+                    if kw.value.attr in safe_loaders:
+                        return True
+                elif isinstance(kw.value, ast.Name):
+                    if kw.value.id in safe_loaders:
+                        return True
+        return False
 
     def _get_func_name(self, node):
         if isinstance(node, ast.Name):
@@ -194,8 +401,20 @@ def analyze_python_file(filepath):
     analyzer = FunctionAnalyzer()
     analyzer.visit(tree)
     findings = []
+    # Extended vulnerability categories to check
+    _extended_vuln_keys = [
+        "deserialization_calls",
+        "ssrf_calls",
+        "path_traversal_calls",
+        "xxe_calls",
+        "weak_crypto_calls",
+        "template_injection_calls",
+        "open_redirect_calls",
+        "ldap_injection_calls",
+    ]
     for func in analyzer.functions:
-        if func["dangerous_calls"] or func["length"] > 50 or func["cyclomatic_complexity"] > 10:
+        has_extended_vulns = any(func.get(k) for k in _extended_vuln_keys)
+        if func["dangerous_calls"] or has_extended_vulns or func["length"] > 50 or func["cyclomatic_complexity"] > 10:
             # Extract function source code
             func_code = None
             try:
@@ -209,13 +428,20 @@ def analyze_python_file(filepath):
             except Exception:
                 func_code = ""
             embedding = get_code_embedding(func_code) if func_code else []
-            findings.append(
-                {
+            finding = {
                     "type": "function_analysis",
                     "function": func["name"],
                     "line": func["lineno"],
                     "length": func["length"],
                     "dangerous_calls": func["dangerous_calls"],
+                    "deserialization_calls": func["deserialization_calls"],
+                    "ssrf_calls": func["ssrf_calls"],
+                    "path_traversal_calls": func["path_traversal_calls"],
+                    "xxe_calls": func["xxe_calls"],
+                    "weak_crypto_calls": func["weak_crypto_calls"],
+                    "template_injection_calls": func["template_injection_calls"],
+                    "open_redirect_calls": func["open_redirect_calls"],
+                    "ldap_injection_calls": func["ldap_injection_calls"],
                     "cyclomatic_complexity": func["cyclomatic_complexity"],
                     "max_nesting_depth": func["max_nesting_depth"],
                     "input_validation": func["input_validation"],
@@ -223,7 +449,7 @@ def analyze_python_file(filepath):
                     "num_sensitive_vars": func["num_sensitive_vars"],
                     "embedding": embedding,
                 }
-            )
+            findings.append(finding)
     return findings
 
 
