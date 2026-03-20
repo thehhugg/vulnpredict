@@ -37,6 +37,8 @@ _fake_torch.no_grad = mock.MagicMock(
         __exit__=mock.MagicMock(return_value=False),
     )
 )
+_fake_torch.Tensor = type("Tensor", (), {})
+_fake_torch.tensor = mock.MagicMock()
 
 # ---------------------------------------------------------------------------
 # Inject into sys.modules BEFORE any test imports py_analyzer
