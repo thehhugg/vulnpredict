@@ -1,0 +1,119 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches: ["master"]
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  version-check:
+    name: Validate version bump on release PRs
+    if: contains(github.event.pull_request.labels.*.name, 'release' )
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tomli for TOML parsing
+        run: pip install tomli
+
+      - name: Validate version bump
+        run: |
+          python3 << 'EOF'
+          import subprocess
+          import sys
+          import re
+
+          try:
+              import tomli
+          except ImportError:
+              import tomllib as tomli
+
+          # Get version from PR branch (pyproject.toml)
+          with open("pyproject.toml", "rb") as f:
+              pr_config = tomli.load(f)
+          pr_version = pr_config.get("project", {}).get("version", "")
+
+          # Get version from base branch
+          base_ref = "${{ github.event.pull_request.base.ref }}"
+          result = subprocess.run(
+              ["git", "show", f"origin/{base_ref}:pyproject.toml"],
+              capture_output=True, text=True
+          )
+
+          if result.returncode != 0:
+              print("WARNING: Could not read base branch pyproject.toml. Skipping comparison.")
+              sys.exit(0)
+
+          import tempfile, os
+          with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+              f.write(result.stdout)
+              tmp_path = f.name
+
+          with open(tmp_path, "rb") as f:
+              base_config = tomli.load(f)
+          os.unlink(tmp_path)
+
+          base_version = base_config.get("project", {}).get("version", "")
+
+          print(f"Base version:  {base_version}")
+          print(f"PR version:    {pr_version}")
+
+          # Check version is not a dev version for releases
+          if "-dev" in pr_version:
+              print("FAIL: Release version must not contain '-dev' suffix.")
+              sys.exit(1)
+
+          # Check version follows SemVer pattern
+          semver_pattern = r"^\d+\.\d+\.\d+$"
+          if not re.match(semver_pattern, pr_version):
+              print(f"FAIL: Version '{pr_version}' does not follow SemVer (X.Y.Z).")
+              sys.exit(1)
+
+          # Check version was actually bumped
+          base_clean = base_version.replace("-dev", "")
+          if pr_version == base_clean:
+              print("FAIL: Version was not bumped from base branch.")
+              sys.exit(1)
+
+          # Parse and compare versions
+          def parse_ver(v):
+              parts = v.replace("-dev", "").split(".")
+              return tuple(int(p) for p in parts[:3])
+
+          pr_parts = parse_ver(pr_version)
+          base_parts = parse_ver(base_version)
+
+          if pr_parts <= base_parts:
+              print(f"FAIL: PR version {pr_version} is not greater than base version {base_version}.")
+              sys.exit(1)
+
+          print(f"PASS: Version correctly bumped from {base_version} to {pr_version}.")
+          EOF
+
+      - name: Check CHANGELOG has release entry
+        run: |
+          VERSION=$(python3 -c "
+          try:
+              import tomli
+          except ImportError:
+              import tomllib as tomli
+          with open('pyproject.toml', 'rb') as f:
+              print(tomli.load(f)['project']['version'])
+          ")
+          echo "Checking CHANGELOG.md for version $VERSION..."
+          if grep -q "\[$VERSION\]" CHANGELOG.md; then
+            echo "PASS: CHANGELOG.md contains entry for version $VERSION."
+          else
+            echo "FAIL: CHANGELOG.md does not contain an entry for version $VERSION."
+            echo "Please move [Unreleased] entries to a [$VERSION] section."
+            exit 1
+          fi
