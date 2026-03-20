@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Lint — fast feedback on code quality
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get pip cache directory
+        id: pip-cache-dir
+        run: echo "dir=$(pip cache dir )" >> $GITHUB_OUTPUT
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-pip-lint-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-lint-
+
+      - name: Install linting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 bandit
+
+      - name: Flake8 — syntax errors and undefined names (blocking)
+        run: |
+          flake8 vulnpredict/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Flake8 — style warnings (non-blocking)
+        run: |
+          flake8 vulnpredict/ --count --exit-zero --max-complexity=15 --max-line-length=120 --statistics
+
+      - name: Bandit — security lint on own codebase
+        continue-on-error: true
+        run: |
+          bandit -r vulnpredict/ \
+            --severity-level medium \
+            --confidence-level medium \
+            -f json \
+            -o bandit-report.json
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Test — matrix across Python versions and operating systems
+  # ---------------------------------------------------------------------------
+  test:
+    name: Test (Python ${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        exclude:
+          # macOS + older Python combinations are slow and rarely surface
+          # platform-specific bugs for a pure-Python project. We test the
+          # newest and one prior version on macOS to balance coverage vs cost.
+          - os: macos-latest
+            python-version: "3.9"
+          - os: macos-latest
+            python-version: "3.10"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Get pip cache directory
+        id: pip-cache-dir
+        run: echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-${{ matrix.python-version }}-
+
+      - name: Install core dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas scikit-learn joblib astroid bandit click
+          pip install pytest pytest-cov
+          pip install -e .
+
+      - name: Install Node.js (for JS analyzer)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install JS analysis dependencies
+        run: |
+          npm install -g esprima eslint
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ \
+            --cov=vulnpredict \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            -v \
+            --tb=short
+
+      - name: Upload coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Install check — verify the package installs cleanly
+  # ---------------------------------------------------------------------------
+  install-check:
+    name: Install Check (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+
+      - name: Verify CLI entry point
+        run: |
+          python -m vulnpredict --help
+
+      - name: Verify module import
+        run: |
+          python -c "import vulnpredict; print('vulnpredict imported successfully')"
+
+  # ---------------------------------------------------------------------------
+  # Job 4: Scan demo project — smoke test the actual scanning functionality
+  # ---------------------------------------------------------------------------
+  smoke-test:
+    name: Smoke Test (scan demo project)
+    runs-on: ubuntu-latest
+    needs: install-check
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Get pip cache directory
+        id: pip-cache-dir
+        run: echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pip-cache-dir.outputs.dir }}
+          key: ${{ runner.os }}-pip-smoke-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-smoke-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          npm install -g esprima eslint
+
+      - name: Run scan on demo project
+        run: |
+          # vulnpredict exits non-zero when vulnerabilities are found.
+          # We expect findings in the demo project, so we check that the
+          # tool runs without crashing rather than checking the exit code.
+          vulnpredict scan demo_project/ || exit_code=$?
+          if [ "${exit_code:-0}" -gt 2 ]; then
+            echo "ERROR: vulnpredict crashed with exit code $exit_code"
+            exit 1
+          fi
+          echo "Smoke test passed (exit code: ${exit_code:-0})"
