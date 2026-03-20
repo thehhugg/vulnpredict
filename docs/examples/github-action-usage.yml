@@ -1,0 +1,67 @@
+# Example: VulnPredict GitHub Action Usage
+# Copy this file to .github/workflows/security.yml in your repository
+
+name: Security Scan
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+permissions:
+  contents: read
+  security-events: write  # Required for SARIF upload
+
+jobs:
+  vulnpredict:
+    name: VulnPredict Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Basic usage — scan entire repo, output SARIF
+      - name: Run VulnPredict scan
+        id: scan
+        uses: thehhugg/vulnpredict@master
+        with:
+          path: "."
+          format: sarif
+          output-file: vulnpredict-results.sarif
+          min-severity: medium
+          fail-on-findings: false
+
+      # Upload SARIF to GitHub Code Scanning
+      - name: Upload SARIF to GitHub
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: vulnpredict-results.sarif
+
+      # Display scan summary in job log
+      - name: Scan summary
+        if: always()
+        run: |
+          echo "Total findings: ${{ steps.scan.outputs.finding-count }}"
+          echo "High: ${{ steps.scan.outputs.high-count }}"
+          echo "Medium: ${{ steps.scan.outputs.medium-count }}"
+          echo "Low: ${{ steps.scan.outputs.low-count }}"
+
+  # Example: Strict mode — fail on any high-severity findings
+  vulnpredict-strict:
+    name: VulnPredict Strict Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run strict security scan
+        uses: thehhugg/vulnpredict@master
+        with:
+          path: "src/"
+          format: json
+          output-file: security-report.json
+          min-severity: high
+          fail-on-findings: true
