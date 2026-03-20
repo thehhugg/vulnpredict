@@ -25,3 +25,4 @@ pytest
 # For code embeddings
 transformers
 torch
+pytest-cov

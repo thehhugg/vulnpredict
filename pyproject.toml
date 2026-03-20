@@ -21,8 +21,34 @@ exclude_dirs = ["tests", "demo_project"]
 skips = ["B101", "B110", "B112", "B404", "B603", "B607"]  # B101: assert, B110/B112: resilient error handling, B404/B603/B607: subprocess with known-safe commands
 
 # ---------------------------------------------------------------------------
+# Coverage — pytest-cov configuration
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["vulnpredict"]
+omit = [
+    "vulnpredict/__main__.py",
+    "vulnpredict/train.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError",
+]
+show_missing = true
+fail_under = 40
+precision = 1
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+# ---------------------------------------------------------------------------
 # pytest — test configuration
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=vulnpredict --cov-report=term-missing --cov-report=xml:coverage.xml"

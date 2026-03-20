@@ -83,9 +83,6 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
         exclude:
-          # macOS + older Python combinations are slow and rarely surface
-          # platform-specific bugs for a pure-Python project. We test the
-          # newest and one prior version on macOS to balance coverage vs cost.
           - os: macos-latest
             python-version: "3.9"
           - os: macos-latest
@@ -136,13 +133,29 @@ jobs:
             -v \
             --tb=short
 
-      - name: Upload coverage report
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.xml
           if-no-files-found: ignore
+
+      - name: Check coverage threshold
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        run: |
+          pip install coverage
+          coverage report --fail-under=40
 
   # ---------------------------------------------------------------------------
   # Job 3: Install check — verify the package installs cleanly
@@ -216,9 +229,6 @@ jobs:
 
       - name: Run scan on demo project
         run: |
-          # vulnpredict exits non-zero when vulnerabilities are found.
-          # We expect findings in the demo project, so we check that the
-          # tool runs without crashing rather than checking the exit code.
           vulnpredict scan demo_project/ || exit_code=$?
           if [ "${exit_code:-0}" -gt 2 ]; then
             echo "ERROR: vulnpredict crashed with exit code $exit_code"
