@@ -17,7 +17,7 @@ try:
     try:
         import tomllib
     except ModuleNotFoundError:
-        import tomli as tomllib  # type: ignore[no-redef]
+        import tomli as tomllib
 
     _pyproject = os.path.join(os.path.dirname(__file__), "..", "..", "pyproject.toml")
     if os.path.isfile(_pyproject):
@@ -173,7 +173,7 @@ def _get_message(finding: Dict[str, Any]) -> str:
         complexity = finding.get("complexity", "?")
         return f"High cyclomatic complexity: {complexity}"
 
-    return finding.get("message", str(finding))
+    return str(finding.get("message", str(finding)))
 
 
 def _get_location(finding: Dict[str, Any], scan_path: str) -> Dict[str, Any]:

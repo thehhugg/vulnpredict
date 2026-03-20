@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import json
 import os
 import subprocess
+from typing import Any, Dict, List, Optional, Tuple
 
 from .logging_config import get_logger
 
@@ -80,7 +83,7 @@ console.log(JSON.stringify(findings));
 """
 
 
-def analyze_js_file(filepath):
+def analyze_js_file(filepath: str) -> List[Dict[str, Any]]:
     """
     Analyze a JavaScript file for complexity and dangerous patterns using esprima.
     Returns a list of findings.
@@ -93,7 +96,7 @@ def analyze_js_file(filepath):
         script_path = f.name
     try:
         result = subprocess.run(["node", script_path, filepath], capture_output=True, text=True, check=True)
-        findings = json.loads(result.stdout)
+        findings: List[Dict[str, Any]] = json.loads(result.stdout)
         return findings
     except Exception as e:
         logger.warning("JS analysis error for %s: %s", filepath, e)
@@ -103,7 +106,7 @@ def analyze_js_file(filepath):
         os.remove(script_path)
 
 
-def run_eslint(filepath):
+def run_eslint(filepath: str) -> List[Dict[str, Any]]:
     """
     Optionally run eslint on the given file and return parsed results.
     """
@@ -129,7 +132,7 @@ def run_eslint(filepath):
         return []
 
 
-def extract_js_dependencies(path):
+def extract_js_dependencies(path: str) -> Tuple[List[Dict[str, Any]], int, int, Optional[str]]:
     """
     Extract dependencies from package.json if present in the root of the path.
     Returns a tuple of (deps_list, num_vulnerable, num_outdated, max_severity).
@@ -172,7 +175,7 @@ def extract_js_dependencies(path):
     return deps, num_vuln, 0, max_severity
 
 
-def analyze_js_project(path):
+def analyze_js_project(path: str) -> List[Dict[str, Any]]:
     """
     Recursively analyze all .js files in a directory.
     Returns a list of findings, including a dependencies finding if package.json is present.

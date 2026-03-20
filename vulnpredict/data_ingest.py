@@ -1,5 +1,7 @@
 """NVD CVE data ingestion module."""
 
+from __future__ import annotations
+
 import json
 import os
 
@@ -10,7 +12,7 @@ from .logging_config import get_logger
 logger = get_logger(__name__)
 
 
-def fetch_nvd_cve_data(year, out_file):
+def fetch_nvd_cve_data(year: int, out_file: str) -> None:
     """
     Fetch CVE data from NVD for a given year and save to out_file (JSON).
     Requires NVD_API_KEY in environment for higher rate limits.

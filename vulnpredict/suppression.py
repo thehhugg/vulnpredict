@@ -210,7 +210,7 @@ def load_baseline(path: str) -> List[Dict[str, Any]]:
     try:
         with open(path, encoding="utf-8") as f:
             data = json.load(f)
-        findings = data.get("findings", [])
+        findings: List[Dict[str, Any]] = data.get("findings", [])
         logger.info("Loaded baseline with %d findings from %s", len(findings), path)
         return findings
     except FileNotFoundError:

@@ -1,8 +1,11 @@
 """VulnPredict CLI — command-line interface for the vulnerability scanner."""
 
+from __future__ import annotations
+
 import os
 import sys
 import time
+from typing import Any, Dict, List, Optional
 
 import click
 
@@ -28,7 +31,7 @@ MODEL_PATH = "vulnpredict_model.joblib"
     help="Write log output to a file in addition to stderr.",
 )
 @click.pass_context
-def main(ctx, verbose, debug, log_file):
+def main(ctx: click.Context, verbose: bool, debug: bool, log_file: Optional[str]) -> None:
     """VulnPredict — Predictive Vulnerability Intelligence Tool."""
     ctx.ensure_object(dict)
     verbosity = 2 if debug else (1 if verbose else 0)
@@ -39,7 +42,7 @@ def main(ctx, verbose, debug, log_file):
 @main.command()
 @click.argument("year", type=int)
 @click.argument("out_file")
-def fetch_nvd(year, out_file):
+def fetch_nvd(year: int, out_file: str) -> None:
     """Fetch NVD CVE data for a given YEAR and save to OUT_FILE (JSON)."""
     try:
         from .data_ingest import fetch_nvd_cve_data
@@ -57,7 +60,7 @@ def fetch_nvd(year, out_file):
 @main.command()
 @click.argument("nvd_json")
 @click.argument("out_csv")
-def extract_nvd_patterns(nvd_json, out_csv):
+def extract_nvd_patterns(nvd_json: str, out_csv: str) -> None:
     """Extract patterns from NVD JSON and save to OUT_CSV."""
     try:
         import pandas as pd
@@ -76,7 +79,7 @@ def extract_nvd_patterns(nvd_json, out_csv):
         sys.exit(EXIT_ERROR)
 
 
-def _count_scannable_files(path):
+def _count_scannable_files(path: str) -> int:
     """Count Python and JavaScript files in the scan path."""
     count = 0
     for root, _dirs, files in os.walk(path):
@@ -86,7 +89,7 @@ def _count_scannable_files(path):
     return count
 
 
-def _auto_train_model():
+def _auto_train_model() -> bool:
     """Auto-train the ML model on the demo project if no model exists."""
     logger.info("No trained model found. Auto-training on demo_project...")
     try:
@@ -103,7 +106,7 @@ def _auto_train_model():
             )
             return False
         labeled_csv = "labeled_findings.csv"
-        gen_data_main.callback(demo_dir, labeled_csv)
+        gen_data_main.callback(demo_dir, labeled_csv)  # type: ignore[misc]
         df = pd.read_csv(labeled_csv)
         raw_features = df.drop(columns=["label"])
         labels = df["label"].astype(int)
@@ -122,7 +125,7 @@ def _auto_train_model():
         return False
 
 
-def _run_python_scan(path):
+def _run_python_scan(path: str) -> List[Dict[str, Any]]:
     """Run Python vulnerability analysis with error handling."""
     try:
         from .py_analyzer import analyze_python_project
@@ -140,7 +143,7 @@ def _run_python_scan(path):
         return []
 
 
-def _run_js_scan(path):
+def _run_js_scan(path: str) -> List[Dict[str, Any]]:
     """Run JavaScript vulnerability analysis with error handling."""
     try:
         from .js_analyzer import analyze_js_project
@@ -158,7 +161,7 @@ def _run_js_scan(path):
         return []
 
 
-def _run_taint_analysis(path):
+def _run_taint_analysis(path: str) -> List[Dict[str, Any]]:
     """Run interprocedural taint analysis with error handling."""
     try:
         from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
@@ -176,7 +179,7 @@ def _run_taint_analysis(path):
         return []
 
 
-def _score_findings(findings):
+def _score_findings(findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Score findings with the ML model, falling back gracefully."""
     try:
         from .ml import predict
@@ -235,7 +238,16 @@ def _score_findings(findings):
     help="Only show findings at or above this severity level.",
 )
 @click.pass_context
-def scan(ctx, path, output_format, output_file, compact, baseline, show_suppressed, min_severity):
+def scan(
+    ctx: click.Context,
+    path: str,
+    output_format: str,
+    output_file: Optional[str],
+    compact: bool,
+    baseline: Optional[str],
+    show_suppressed: bool,
+    min_severity: Optional[str],
+) -> None:
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
         logger.error("Scan path not found: %s", path)
@@ -439,11 +451,11 @@ def scan(ctx, path, output_format, output_file, compact, baseline, show_suppress
             sys.exit(EXIT_ERROR)
 
 
-def _print_suppression_summary(suppressed_findings):
+def _print_suppression_summary(suppressed_findings: List[Dict[str, Any]]) -> None:
     """Print a summary of suppressed findings by reason."""
     if not suppressed_findings:
         return
-    reasons = {}
+    reasons: Dict[str, int] = {}
     for f in suppressed_findings:
         reason = f.get("suppression_reason", "unknown")
         reasons[reason] = reasons.get(reason, 0) + 1
@@ -458,7 +470,7 @@ def _print_suppression_summary(suppressed_findings):
     default=".",
     type=click.Path(exists=True),
 )
-def init(project_dir):
+def init(project_dir: str) -> None:
     """Generate a default .vulnpredict.yml configuration file."""
     from .config import CONFIG_FILENAME, generate_default_config
 
@@ -480,7 +492,7 @@ def init(project_dir):
 
 @main.command()
 @click.argument("csv_file")
-def train(csv_file):
+def train(csv_file: str) -> None:
     """Train the ML model from a labeled CSV file."""
     try:
         import pandas as pd

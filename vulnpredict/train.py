@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import click
 import pandas as pd
 
@@ -6,7 +8,7 @@ from .ml import train_model
 
 @click.command()
 @click.argument("csv_file")
-def main(csv_file):
+def main(csv_file: str) -> None:
     """
     Train the VulnPredict model from a labeled CSV file.
     """

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import json
 
 import pandas as pd
 
 
-def extract_patterns_from_nvd(json_file):
+def extract_patterns_from_nvd(json_file: str) -> pd.DataFrame:
     """
     Extract affected products, CWE IDs, and descriptions from NVD CVE JSON data.
     Returns a pandas DataFrame.

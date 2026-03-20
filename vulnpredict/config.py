@@ -97,7 +97,7 @@ def _load_yaml(path: str) -> Dict[str, Any]:
     Returns an empty dict on any error (missing file, parse error, etc.).
     """
     try:
-        import yaml  # type: ignore[import-untyped]
+        import yaml
     except ImportError:
         logger.warning(
             "PyYAML is not installed; cannot read %s. "
