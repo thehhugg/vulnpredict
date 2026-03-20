@@ -2,6 +2,10 @@ import json
 import os
 import subprocess
 
+from .logging_config import get_logger
+
+logger = get_logger(__name__)
+
 DANGEROUS_FUNCTIONS = {"eval", "Function", "setTimeout", "setInterval"}
 VALIDATION_FUNCTIONS = {
     "encodeURIComponent",
@@ -92,7 +96,8 @@ def analyze_js_file(filepath):
         findings = json.loads(result.stdout)
         return findings
     except Exception as e:
-        print(f"[VulnPredict] JS analysis error: {e}")
+        logger.warning("JS analysis error for %s: %s", filepath, e)
+        logger.debug("Traceback:", exc_info=True)
         return []
     finally:
         os.remove(script_path)
@@ -119,7 +124,8 @@ def run_eslint(filepath):
                 )
         return findings
     except Exception as e:
-        print(f"[VulnPredict] ESLint error: {e}")
+        logger.warning("ESLint error for %s: %s", filepath, e)
+        logger.debug("Traceback:", exc_info=True)
         return []
 
 
