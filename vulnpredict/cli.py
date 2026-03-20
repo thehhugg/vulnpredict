@@ -228,8 +228,14 @@ def _score_findings(findings):
     default=False,
     help="Include suppressed findings in the output.",
 )
+@click.option(
+    "--min-severity",
+    type=click.Choice(["low", "medium", "high", "critical"], case_sensitive=False),
+    default=None,
+    help="Only show findings at or above this severity level.",
+)
 @click.pass_context
-def scan(ctx, path, output_format, output_file, compact, baseline, show_suppressed):
+def scan(ctx, path, output_format, output_file, compact, baseline, show_suppressed, min_severity):
     """Scan the given codebase for potential vulnerabilities."""
     if not os.path.exists(path):
         logger.error("Scan path not found: %s", path)
@@ -280,6 +286,24 @@ def scan(ctx, path, output_format, output_file, compact, baseline, show_suppress
     else:
         logger.info("No ML model available. Returning unscored findings.")
         scored_findings = active_findings
+
+    # Classify findings with severity and confidence
+    from .severity import classify_finding, filter_by_severity, sort_by_severity
+
+    scored_findings = [classify_finding(f) for f in scored_findings]
+    scored_findings = sort_by_severity(scored_findings)
+
+    # Apply minimum severity filter if requested
+    if min_severity:
+        pre_filter_count = len(scored_findings)
+        scored_findings = filter_by_severity(scored_findings, min_severity)
+        filtered_count = pre_filter_count - len(scored_findings)
+        if filtered_count > 0:
+            logger.info(
+                "Filtered %d findings below %s severity.",
+                filtered_count,
+                min_severity,
+            )
 
     # Determine which findings to output
     output_findings = scored_findings
@@ -362,24 +386,37 @@ def scan(ctx, path, output_format, output_file, compact, baseline, show_suppress
     # --- Text output (default) ---
     if scored_findings:
         click.echo("\n=== Vulnerability Findings ===")
-        high, med, low = 0, 0, 0
+        severity_counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0}
+        severity_colors = {
+            "Critical": "red",
+            "High": "red",
+            "Medium": "yellow",
+            "Low": "green",
+        }
         for finding in scored_findings:
-            score = finding.get("vuln_score", 0)
-            if score >= 0.8:
-                color = "red"
-                high += 1
-            elif score >= 0.5:
-                color = "yellow"
-                med += 1
-            else:
-                color = "green"
-                low += 1
-            click.echo(click.style(f"[score={score:.2f}] {finding}", fg=color))
+            sev = finding.get("severity", "Low")
+            severity_counts[sev] = severity_counts.get(sev, 0) + 1
+            color = severity_colors.get(sev, "white")
+            rule_id = finding.get("rule_id", "UNKNOWN")
+            conf = finding.get("confidence", "Medium")
+            score = finding.get("combined_score", finding.get("vuln_score", 0))
+            name = finding.get("name", finding.get("file", "unknown"))
+            desc = finding.get("rule_description", "")
+            click.echo(
+                click.style(
+                    f"[{sev:8s}] [{rule_id}] (confidence={conf}, score={score:.3f}) "
+                    f"{name}: {desc}",
+                    fg=color,
+                )
+            )
         click.echo("\n=== Summary ===")
-        click.echo(f"High risk:   {high}")
-        click.echo(f"Medium risk: {med}")
-        click.echo(f"Low risk:    {low}")
-        click.echo(f"Total:       {len(scored_findings)} findings")
+        for sev_name in ("Critical", "High", "Medium", "Low"):
+            count = severity_counts.get(sev_name, 0)
+            if count > 0:
+                click.echo(f"  {sev_name:10s}: {count}")
+        click.echo(f"  {'Total':10s}: {len(scored_findings)} findings")
+        if min_severity:
+            click.echo(f"  (filtered to {min_severity}+ severity)")
     else:
         click.echo("No potential vulnerabilities found.")
 
