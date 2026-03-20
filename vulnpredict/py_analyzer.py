@@ -251,7 +251,11 @@ def run_bandit(filepath):
             )
         return findings
     except Exception as e:
-        print(f"[VulnPredict] Bandit error: {e}")
+        from .logging_config import get_logger
+
+        _bandit_logger = get_logger(__name__)
+        _bandit_logger.warning("Bandit analysis failed: %s", e)
+        _bandit_logger.debug("Traceback:", exc_info=True)
         return []
 
 
