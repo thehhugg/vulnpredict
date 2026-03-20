@@ -3,7 +3,10 @@ import pandas as pd
 
 from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
 from .js_analyzer import analyze_js_project
+from .logging_config import get_logger
 from .py_analyzer import analyze_python_project
+
+logger = get_logger(__name__)
 
 
 def auto_label(finding):
@@ -34,7 +37,7 @@ def main(code_dir, output_csv):
         f["label"] = auto_label(f)
     df = pd.DataFrame(all_findings)
     df.to_csv(output_csv, index=False)
-    print(f"[VulnPredict] Labeled data saved to {output_csv}")
+    logger.info("Labeled data saved to %s (%d findings)", output_csv, len(all_findings))
 
 
 if __name__ == "__main__":
