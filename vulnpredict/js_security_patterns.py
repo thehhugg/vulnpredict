@@ -300,7 +300,7 @@ def scan_js_directory_patterns(directory: str) -> List[Dict[str, Any]]:
     for root, dirs, files in os.walk(directory):
         dirs[:] = [d for d in dirs if d not in skip_dirs]
         for fname in files:
-            if fname.endswith((".js", ".jsx", ".mjs")):
+            if fname.endswith((".js", ".jsx", ".mjs", ".ts", ".tsx")):
                 fpath = os.path.join(root, fname)
                 findings.extend(scan_js_file_patterns(fpath))
 
