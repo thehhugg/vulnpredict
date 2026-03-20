@@ -6,6 +6,7 @@ import pandas as pd
 
 from .data_ingest import fetch_nvd_cve_data
 from .formatters.json_fmt import format_json, write_json
+from .formatters.sarif import format_sarif, write_sarif
 from .interprocedural_taint import analyze_project as analyze_interprocedural_taint
 from .js_analyzer import analyze_js_project
 from .ml import predict, train_model
@@ -54,7 +55,7 @@ def _count_scannable_files(path):
 @click.option(
     "--format",
     "output_format",
-    type=click.Choice(["text", "json"], case_sensitive=False),
+    type=click.Choice(["text", "json", "sarif"], case_sensitive=False),
     default="text",
     help="Output format for scan results.",
 )
@@ -124,6 +125,16 @@ def scan(path, output_format, output_file, compact):
         scored_findings = predict(all_findings)
     except Exception:
         pass
+
+    # --- SARIF output ---
+    if output_format == "sarif":
+        if output_file:
+            write_sarif(scored_findings, scan_path=path, output_path=output_file)
+            click.echo(f"[VulnPredict] SARIF results written to {output_file}")
+        else:
+            sarif_str = format_sarif(scored_findings, scan_path=path)
+            click.echo(sarif_str)
+        return
 
     # --- JSON output ---
     if output_format == "json":
