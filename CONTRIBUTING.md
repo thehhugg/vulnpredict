@@ -111,10 +111,91 @@ Development versions use the `-dev` suffix (e.g., `0.2.0-dev`). When preparing a
 
 All notable changes must be documented in [CHANGELOG.md](CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/) format. When submitting a PR that adds a feature, fixes a bug, or introduces a breaking change, please add an entry under the `[Unreleased]` section.
 
+## Project Architecture
+
+VulnPredict uses the standard Python `src/` layout. The main package lives in `src/vulnpredict/` and the test suite is in `tests/`.
+
+| Module | Responsibility |
+|---|---|
+| `cli.py` | Click-based CLI that orchestrates the scan pipeline |
+| `py_analyzer.py` | Python AST analysis with taint tracking |
+| `interprocedural_taint.py` | Cross-function taint propagation for Python |
+| `js_analyzer.py` | JavaScript security analysis |
+| `ts_analyzer.py` | TypeScript/TSX analysis (extends JS analyzer) |
+| `go_analyzer.py` | Go security analysis with 15 detection rules |
+| `iac_analyzer.py` | Terraform, Dockerfile, and Kubernetes analysis |
+| `secrets_detector.py` | Hardcoded credential and API key detection |
+| `rules.py` | YAML-based configurable rule engine |
+| `ml.py` | ML model loading and vulnerability prediction |
+| `severity.py` | Severity scoring and finding ranking |
+| `suppression.py` | Baseline comparison and finding suppression |
+| `profiles.py` | Scan profile definitions (quick, standard, deep) |
+| `formatters/` | Output format implementations (JSON, SARIF, HTML, Markdown) |
+| `dashboard/` | FastAPI REST API for scan result storage |
+
+## Your First Contribution: Adding a Detection Rule
+
+The easiest way to contribute is by adding a new YAML-based detection rule. Here is a complete walkthrough.
+
+### Step 1: Create a Rule File
+
+Create a new YAML file in the `rules/` directory:
+
+```yaml
+# rules/python-ssrf-advanced.yml
+id: VP-CUSTOM-001
+name: SSRF via urllib
+language: python
+severity: high
+cwe: CWE-918
+message: "Potential SSRF: urllib.request.urlopen called with user-controlled URL"
+pattern: "urllib\\.request\\.urlopen\\s*\\("
+```
+
+### Step 2: Write a Test
+
+Create a test in `tests/` that verifies your rule detects the vulnerability:
+
+```python
+from vulnpredict.rules import RuleEngine
+
+def test_ssrf_rule(tmp_path):
+    engine = RuleEngine()
+    engine.load_rules_from_directory("rules/")
+    rules = engine.get_rules(language="python")
+    assert any(r["id"] == "VP-CUSTOM-001" for r in rules)
+```
+
+### Step 3: Test and Submit
+
+```bash
+pytest tests/test_custom_ssrf_rule.py -v
+git checkout -b feature/ssrf-urllib-rule
+git add rules/python-ssrf-advanced.yml tests/test_custom_ssrf_rule.py
+git commit -m "feat: add SSRF detection rule for urllib.request.urlopen"
+git push origin feature/ssrf-urllib-rule
+```
+
+Then open a pull request on GitHub.
+
+## Areas Where Contributions Are Most Needed
+
+**New detection rules.** Adding YAML-based rules for common vulnerability patterns is the easiest way to improve VulnPredict's coverage. Check the [CWE Top 25](https://cwe.mitre.org/top25/) for inspiration.
+
+**Language analyzers.** Adding support for new languages (Java, C#, Ruby, PHP) would significantly expand the tool's usefulness.
+
+**False positive reduction.** Improving the precision of existing rules by adding context-aware checks reduces noise for users.
+
+**Documentation.** Improving guides, adding examples, and fixing typos are always welcome.
+
+**Performance optimization.** Profiling and optimizing the scan pipeline for large codebases.
+
+Look for issues labeled `good first issue` in the [issue tracker](https://github.com/thehhugg/vulnpredict/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) for beginner-friendly tasks.
+
 ## Extension Points
 
-- **Language Analyzers:** Add new modules under `vulnpredict/` for additional language support.
-- **Rules and Patterns:** Contribute new vulnerability patterns or detection rules as Python modules or JSON files.
+- **Language Analyzers:** Add new modules under `src/vulnpredict/` for additional language support.
+- **Rules and Patterns:** Contribute new vulnerability patterns as YAML rules in the `rules/` directory.
 - **ML Models:** Submit improvements to model training, feature engineering, or evaluation.
 
 ## Code Style
